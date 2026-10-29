@@ -39,6 +39,8 @@ final class AppModel: ObservableObject {
     @Published var focusToken = 0
     /// Hold-⌘ mode: cards jiggle, show ✕ and ⌘N badges, shortcut bar visible.
     @Published var editMode = false
+    /// Hold-⇧ mode: every paste path (↩, ⌘1–9, double-click) drops formatting.
+    @Published var plainMode = false
     /// Bumped on every open; cards use it to run the staggered entrance.
     @Published var entranceToken = 0
     private(set) var shownAt = Date.distantPast
@@ -155,6 +157,7 @@ final class AppModel: ObservableObject {
         editor = nil
         quickLookID = nil
         editMode = false
+        plainMode = false
         if !search.isEmpty { search = "" }
         recompute(resetSelection: true)
         focusToken += 1
@@ -177,7 +180,8 @@ final class AppModel: ObservableObject {
     // MARK: Paste / copy
 
     /// Pulses the card, then hands off; the short delay lets the pulse register before the panel closes.
-    func paste(_ item: ClipItem, plain: Bool = false) {
+    func paste(_ item: ClipItem, plain explicitPlain: Bool = false) {
+        let plain = explicitPlain || plainMode
         withAnimation(.spring(response: 0.18, dampingFraction: 0.5)) { pulseID = item.id }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
             self?.pulseID = nil

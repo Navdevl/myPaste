@@ -65,6 +65,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setupStatusItem()
         monitor.start()
 
+        // Catch identifiers in history captured before the detector knew about them.
+        _ = try? store.rescanSensitive(ttl: prefs.sensitiveTTL)
         _ = try? store.prune(prefs.retention)
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             guard let self else { return }

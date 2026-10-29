@@ -25,6 +25,17 @@ struct StripView: View {
         .overlay(alignment: .bottom) {
             if model.editMode && model.editor == nil {
                 ShortcutBar().padding(.bottom, 8).transition(.move(edge: .bottom).combined(with: .opacity))
+            } else if model.plainMode && model.editor == nil {
+                HStack(spacing: 8) {
+                    Image(systemName: "textformat.size.smaller").foregroundStyle(.orange)
+                    Text("Plain-text mode").font(.system(size: 12, weight: .semibold))
+                    Text("↩ · ⌘1–9 · double-click paste without formatting · release ⇧ to cancel")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 16).padding(.vertical, 9)
+                .glassSurface(cornerRadius: 16)
+                .padding(.bottom, 8)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .overlay(alignment: .top) {
@@ -324,6 +335,7 @@ struct EditorView: View {
 struct QuickLookView: View {
     let item: ClipItem
     @EnvironmentObject var model: AppModel
+    @State private var revealed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -362,6 +374,15 @@ struct QuickLookView: View {
             }
             .scrollContentBackground(.hidden)
         default:
+            if item.maskedPreview != nil && !revealed {
+                VStack(spacing: 12) {
+                    Label(item.sensitiveLabel ?? "Sensitive", systemImage: "lock.shield.fill").foregroundStyle(.orange)
+                    Text(item.maskedPreview ?? "").font(.system(size: 28, weight: .semibold, design: .monospaced))
+                    Button("Reveal") { revealed = true }
+                    Text("Paste always uses the full value.").font(.caption).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
             ScrollView {
                 Group {
                     if item.kind == .richText, let attr = Visuals.shared.richText(for: item, store: model.store, limit: 50_000) {
@@ -376,6 +397,7 @@ struct QuickLookView: View {
                 if let ocr = item.ocrText, !ocr.isEmpty {
                     Text(ocr).font(.callout).foregroundStyle(.secondary).padding(16)
                 }
+            }
             }
         }
     }

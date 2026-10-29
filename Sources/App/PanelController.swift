@@ -135,6 +135,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private static let holdDelay: TimeInterval = 0.5
 
     private var holdTimer: Timer?
+    private var shiftTimer: Timer?
 
     private func installKeyMonitor() {
         removeKeyMonitor()
@@ -144,6 +145,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             guard event.window === self.panel else { return event }
             // A chord started before the hold delay: it's a shortcut, not a request for hints.
             self.holdTimer?.invalidate()
+            self.shiftTimer?.invalidate()
             return self.handle(event) ? nil : event
         }
     }
@@ -152,11 +154,23 @@ final class PanelController: NSObject, NSWindowDelegate {
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
         keyMonitor = nil
         holdTimer?.invalidate()
+        shiftTimer?.invalidate()
         if model.editMode { setEditMode(false) }
+        model.plainMode = false
     }
 
     private func flagsChanged(_ e: NSEvent) {
         let flags = e.modifierFlags.intersection([.command, .shift, .option, .control])
+        // ⇧ alone, held: plain-text mode. Typing a capital cancels it via the keyDown path.
+        if flags == .shift {
+            guard !model.plainMode, shiftTimer?.isValid != true, model.editor == nil else { return }
+            shiftTimer = Timer.scheduledTimer(withTimeInterval: Self.holdDelay, repeats: false) { [weak self] _ in
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { self?.model.plainMode = true }
+            }
+        } else if !flags.contains(.shift) {
+            shiftTimer?.invalidate()
+            if model.plainMode { withAnimation(.easeOut(duration: 0.15)) { model.plainMode = false } }
+        }
         if flags.contains(.command) {
             guard !model.editMode, holdTimer?.isValid != true, model.editor == nil else { return }
             holdTimer = Timer.scheduledTimer(withTimeInterval: Self.holdDelay, repeats: false) { [weak self] _ in

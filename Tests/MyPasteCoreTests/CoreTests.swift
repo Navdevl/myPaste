@@ -161,6 +161,18 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
         #expect(try store.item(id: t)!.kind == .color)
     }
 
+    @Test func rescanFlagsOldIdentifiers() throws {
+        let store = try ClipStore(directory: dir)
+        let pan = try store.insert(NewCapture(kind: .text, text: "ABCPE1234F", contentHash: "pan"), sensitiveTTL: 600, now: t0)
+        let aadhaar = try store.insert(NewCapture(kind: .phone, text: "2345 6789 0124", contentHash: "aad"), sensitiveTTL: 600, now: t0)
+        let plain = try text(store, "just words", hash: "w")
+        #expect(try store.rescanSensitive(ttl: 600, now: t0) == 2)
+        #expect(try store.item(id: pan)!.sensitiveReason == "pan")
+        #expect(try store.item(id: aadhaar)!.kind == .text)
+        #expect(!(try store.item(id: plain)!.isSensitive))
+        #expect(try store.rescanSensitive(ttl: 600, now: t0) == 0)
+    }
+
     @Test func reopenIsIdempotent() throws {
         _ = try text(try ClipStore(directory: dir), "persisted", hash: "x")
         #expect(try ClipStore(directory: dir).allItems().count == 1)
@@ -230,5 +242,38 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
         let m = HTMLMetadata.parse(html: "<meta name=twitter:title content=Hi><meta name=twitter:image content=https://x.com/a.jpg>", base: base)
         #expect(m.title == "Hi")
         #expect(m.imageURL?.absoluteString == "https://x.com/a.jpg")
+    }
+}
+
+/// Synthetic values only: shapes and checksums are valid, the numbers are made up.
+@Suite struct IndianIdentifierTests {
+    @Test func detects() {
+        #expect(reason("ABCPE1234F") == .pan)
+        #expect(reason("abcpe1234f") == .pan)
+        #expect(reason("2345 6789 0124") == .aadhaar)
+        #expect(reason("234567890124") == .aadhaar)
+        #expect(reason("HDFC0001234") == .ifsc)
+        #expect(reason("someone@okhdfcbank") == .upi)
+        #expect(reason("123456789012345") == .account)
+    }
+
+    @Test func avoidsLookalikes() {
+        #expect(reason("234567890125") != .aadhaar)   // checksum fails, falls to account
+        #expect(reason("9876543210") == nil)          // 10-digit mobile
+        #expect(reason("1761736200") == nil)          // epoch seconds
+        #expect(reason("1761736200123") == nil)       // epoch ms
+        #expect(reason("someone@example.com") == nil) // email, not UPI
+        #expect(reason("ABCDE12345") == nil)          // not PAN shape
+    }
+
+    @Test func masks() {
+        typealias D = SensitiveDetector
+        #expect(D.masked("ABCPE1234F", reason: .pan) == "XXXXX1234F")
+        #expect(D.masked("2345 6789 0124", reason: .aadhaar) == "XXXX XXXX 0124")
+        #expect(D.masked("4111 1111 1111 1111", reason: .card) == "XXXX-XXXX-XXXX-1111")
+        #expect(D.masked("123456789012345", reason: .account) == "••••2345")
+        #expect(D.masked("HDFC0001234", reason: .ifsc) == "HDFC0••••••")
+        #expect(D.masked("someone@okhdfcbank", reason: .upi) == "s•••@okhdfcbank")
+        #expect(D.masked("482913", reason: .otp) == nil)
     }
 }

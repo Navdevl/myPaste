@@ -67,7 +67,7 @@ final class PasteboardMonitor {
 
         let facts = CaptureFacts(string: text, hasRTF: rtf != nil, hasHTML: html != nil, hasImage: png != nil,
                                  fileURLs: fileURLs, hasURLType: types.contains(.URL))
-        let kind = Classifier.kind(for: facts)
+        var kind = Classifier.kind(for: facts)
         if kind == .text, (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return nil }
 
         let keepsRich = kind == .richText || kind == .code
@@ -80,7 +80,10 @@ final class PasteboardMonitor {
         let hash = kind.rawValue + ":" + SHA256.hash(data: hashSource).map { String(format: "%02x", $0) }.joined()
 
         let textual: Set<ContentKind> = [.text, .richText, .code, .link, .email, .phone]
-        let sensitive = textual.contains(kind) ? text.flatMap(SensitiveDetector.reason(for:))?.rawValue : nil
+        let reason = textual.contains(kind) ? text.flatMap(SensitiveDetector.reason(for:)) : nil
+        let sensitive = reason?.rawValue
+        // An Aadhaar looks like a phone number and a UPI ID like an email; file them as text.
+        if reason?.isIdentifier == true { kind = .text }
 
         return NewCapture(kind: kind,
                           text: kind == .image ? nil : (kind == .file ? fileURLs.map(\.lastPathComponent).joined(separator: "\n") : text),

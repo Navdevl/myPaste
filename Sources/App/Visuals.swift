@@ -168,3 +168,22 @@ extension View {
         }
     }
 }
+
+extension ClipItem {
+    var sensitiveKind: SensitiveDetector.Reason? { sensitiveReason.flatMap(SensitiveDetector.Reason.init(rawValue:)) }
+    var sensitiveLabel: String? { sensitiveKind?.label }
+
+    /// Masked value for KYC/banking identifiers and cards; nil for everything else.
+    var maskedPreview: String? {
+        guard isSensitive, let reason = sensitiveKind, reason.isMasked, let text else { return nil }
+        return SensitiveDetector.masked(text, reason: reason)
+    }
+
+    /// Whether plain-text paste differs from a normal paste.
+    var hasFormatting: Bool { hasRTF || hasHTML || kind == .link }
+
+    /// One-line summary that never leaks a masked value (HUDs, toasts).
+    var safeSummary: String {
+        (maskedPreview ?? title ?? text ?? kind.label).replacingOccurrences(of: "\n", with: " ")
+    }
+}

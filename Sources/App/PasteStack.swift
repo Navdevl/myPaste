@@ -98,7 +98,7 @@ struct StackHUD: View {
                     .buttonStyle(.plain).foregroundStyle(.secondary)
             }
             if let next = stack.queue.first {
-                Text("Next: " + (next.title ?? next.text ?? next.kind.label).replacingOccurrences(of: "\n", with: " "))
+                Text("Next: " + next.safeSummary)
                     .lineLimit(1).font(.callout)
             } else {
                 Text("Copy items to queue them.").font(.callout)

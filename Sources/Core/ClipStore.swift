@@ -312,6 +312,32 @@ public final class ClipStore {
         }
     }
 
+    /// Re-runs sensitive detection over unflagged text items, e.g. after the detector learns new
+    /// identifier types. Newly flagged items get the normal expiry from `now` (pinned items are kept).
+    @discardableResult
+    public func rescanSensitive(ttl: TimeInterval, now: Date = Date()) throws -> Int {
+        let rows = try dbQueue.read { db in
+            try Row.fetchAll(db, sql: """
+            SELECT id, text FROM item WHERE isSensitive = 0 AND text IS NOT NULL
+              AND kind IN ('text', 'richText', 'code', 'phone', 'email', 'link')
+            """)
+        }
+        let hits: [(Int64, SensitiveDetector.Reason)] = rows.compactMap { r in
+            guard let text: String = r["text"], let reason = SensitiveDetector.reason(for: text) else { return nil }
+            return (r["id"], reason)
+        }
+        guard !hits.isEmpty else { return 0 }
+        try write { db in
+            for (id, reason) in hits {
+                try db.execute(sql: """
+                UPDATE item SET isSensitive = 1, sensitiveReason = ?, expiresAt = ?,
+                                kind = CASE WHEN ? THEN 'text' ELSE kind END WHERE id = ?
+                """, arguments: [reason.rawValue, now.timeIntervalSince1970 + ttl, reason.isIdentifier, id])
+            }
+        }
+        return hits.count
+    }
+
     // MARK: Retention
 
     /// Deletes expired sensitive items and unpinned items beyond the count or age limit.

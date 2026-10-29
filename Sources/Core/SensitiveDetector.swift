@@ -5,7 +5,46 @@ import Foundation
 public enum SensitiveDetector {
     public enum Reason: String, Sendable {
         case otp, apiKey, card, jwt, privateKey, password
+        // Indian identifiers (KYC / banking): always masked in previews, not just blurred.
+        case pan, aadhaar, ifsc, upi, account
+
+        /// Reasons whose previews show a masked value (last 4 visible) rather than the raw text.
+        public var isMasked: Bool {
+            switch self {
+            case .pan, .aadhaar, .ifsc, .upi, .account, .card: return true
+            default: return false
+            }
+        }
+
+        /// Indian KYC/banking identifiers: their shape (digits, @) says nothing about the content type.
+        public var isIdentifier: Bool {
+            switch self {
+            case .pan, .aadhaar, .ifsc, .upi, .account: return true
+            default: return false
+            }
+        }
+
+        public var label: String {
+            switch self {
+            case .otp: return "One-time code"
+            case .apiKey: return "API key"
+            case .card: return "Card number"
+            case .jwt: return "JWT"
+            case .privateKey: return "Private key"
+            case .password: return "Password-like"
+            case .pan: return "PAN"
+            case .aadhaar: return "Aadhaar"
+            case .ifsc: return "IFSC"
+            case .upi: return "UPI ID"
+            case .account: return "Account number"
+            }
+        }
     }
+
+    private static let panRegex = try! NSRegularExpression(pattern: #"^[A-Z]{3}[ABCFGHJLPT][A-Z][0-9]{4}[A-Z]$"#, options: [.caseInsensitive])
+    private static let ifscRegex = try! NSRegularExpression(pattern: #"^[A-Z]{4}0[A-Z0-9]{6}$"#, options: [.caseInsensitive])
+    /// handle@psp, with no dot in the PSP part (that would make it an email).
+    private static let upiRegex = try! NSRegularExpression(pattern: #"^[a-zA-Z0-9.\-_]{2,64}@[a-zA-Z]{2,32}$"#)
 
     private static let keyPatterns: [NSRegularExpression] = [
         #"^sk-[A-Za-z0-9_\-]{16,}$"#,                    // OpenAI / Anthropic / Stripe secret
@@ -29,11 +68,75 @@ public enum SensitiveDetector {
         let range = NSRange(s.startIndex..., in: s)
         if jwtRegex.firstMatch(in: s, range: range) != nil { return .jwt }
         if keyPatterns.contains(where: { $0.firstMatch(in: s, range: range) != nil }) { return .apiKey }
+        if matches(panRegex, s) { return .pan }
+        if isAadhaar(s) { return .aadhaar }
+        if matches(ifscRegex, s) { return .ifsc }
+        if matches(upiRegex, s) { return .upi }
         if isOTP(s) { return .otp }
         if isCardNumber(s) { return .card }
+        if isAccountNumber(s) { return .account }
         if looksLikeGenericSecret(s) { return .apiKey }
         if looksLikePassword(s) { return .password }
         return nil
+    }
+
+    private static func matches(_ r: NSRegularExpression, _ s: String) -> Bool {
+        r.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil
+    }
+
+    /// 12 digits (optionally 4-4-4), first digit 2–9, valid Verhoeff checksum.
+    public static func isAadhaar(_ s: String) -> Bool {
+        let digits = s.filter { $0 != " " && $0 != "-" }
+        guard digits.count == 12, digits.allSatisfy(\.isASCIIDigit), let first = digits.first, first >= "2" else { return false }
+        return verhoeff(digits)
+    }
+
+    static func verhoeff(_ digits: String) -> Bool {
+        let d: [[Int]] = [
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 2, 3, 4, 0, 6, 7, 8, 9, 5], [2, 3, 4, 0, 1, 7, 8, 9, 5, 6],
+            [3, 4, 0, 1, 2, 8, 9, 5, 6, 7], [4, 0, 1, 2, 3, 9, 5, 6, 7, 8], [5, 9, 8, 7, 6, 0, 4, 3, 2, 1],
+            [6, 5, 9, 8, 7, 1, 0, 4, 3, 2], [7, 6, 5, 9, 8, 2, 1, 0, 4, 3], [8, 7, 6, 5, 9, 3, 2, 1, 0, 4],
+            [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
+        ]
+        let p: [[Int]] = [
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 5, 7, 6, 2, 8, 3, 0, 9, 4], [5, 8, 0, 3, 7, 9, 6, 1, 4, 2],
+            [8, 9, 1, 6, 0, 4, 3, 5, 2, 7], [9, 4, 5, 3, 1, 2, 6, 8, 7, 0], [4, 2, 8, 6, 5, 7, 3, 9, 0, 1],
+            [2, 7, 9, 3, 8, 0, 6, 4, 1, 5], [7, 0, 4, 6, 9, 1, 3, 2, 5, 8],
+        ]
+        var c = 0
+        for (i, ch) in digits.reversed().enumerated() {
+            guard let n = ch.wholeNumberValue else { return false }
+            c = d[c][p[i % 8][n]]
+        }
+        return c == 0
+    }
+
+    /// 9–18 bare digits. Excludes 10-digit Indian mobiles (6–9 prefix) and epoch timestamps (s / ms).
+    public static func isAccountNumber(_ s: String) -> Bool {
+        guard (9...18).contains(s.count), s.allSatisfy(\.isASCIIDigit) else { return false }
+        if s.count == 10, let f = s.first, "6789".contains(f) { return false }
+        if s.count == 10 || s.count == 13, let v = Double(s) {
+            let seconds = s.count == 13 ? v / 1000 : v
+            if (978_307_200...4_102_444_800).contains(seconds) { return false } // 2001–2100
+        }
+        return true
+    }
+
+    /// Preview-safe rendering for masked reasons; nil means show the text as-is (blur still applies).
+    public static func masked(_ text: String, reason: Reason) -> String? {
+        let s = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let digits = s.filter(\.isASCIIDigit)
+        switch reason {
+        case .pan: return "XXXXX" + s.dropFirst(5).prefix(4) + s.suffix(1)
+        case .aadhaar: return "XXXX XXXX " + digits.suffix(4)
+        case .card: return "XXXX-XXXX-XXXX-" + digits.suffix(4)
+        case .account: return "••••" + digits.suffix(4)
+        case .ifsc: return s.prefix(5) + "••••••"
+        case .upi:
+            guard let at = s.firstIndex(of: "@") else { return "•••" }
+            return String(s[..<at].prefix(1)) + "•••" + s[at...]
+        default: return nil
+        }
     }
 
     /// 4–8 bare digits, optionally split in the middle ("123 456" / "123-456").

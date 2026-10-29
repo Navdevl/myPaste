@@ -9,7 +9,8 @@ struct CardView: View {
     static let size = CGSize(width: 232, height: 244)
 
     private var selected: Bool { model.selectedID == item.id }
-    private var concealed: Bool { item.isSensitive && !selected && model.hoveredID != item.id }
+    /// Masked identifiers (PAN, Aadhaar, cards, accounts…) never show raw in a card, so they skip the blur.
+    private var concealed: Bool { item.isSensitive && item.maskedPreview == nil && !selected && model.hoveredID != item.id }
 
     @State private var appeared = true
 
@@ -18,6 +19,7 @@ struct CardView: View {
             .overlay(alignment: .top) { pinDrop }
             .overlay(alignment: .topLeading) { if model.editMode { deleteButton } }
             .overlay(alignment: .topTrailing) { if model.editMode, index < 9 { shortcutBadge } }
+            .overlay(alignment: .topTrailing) { if model.plainMode, !model.editMode, item.hasFormatting { plainBadge } }
             .modifier(Jiggle(active: model.editMode, seed: index))
             .scaleEffect(model.pulseID == item.id ? 1.06 : 1)
             .opacity(appeared ? 1 : 0)
@@ -40,7 +42,9 @@ struct CardView: View {
         VStack(spacing: 0) {
             header
             ZStack {
-                preview
+                Group {
+                    if let masked = item.maskedPreview { maskedView(masked) } else { preview }
+                }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .blur(radius: concealed ? 9 : 0)
                 if concealed {
@@ -48,6 +52,7 @@ struct CardView: View {
                         .font(.callout.weight(.semibold)).foregroundStyle(.secondary)
                 }
             }
+            .background(alignment: .bottomTrailing) { watermark }
             .clipped()
             footer
         }
@@ -63,7 +68,7 @@ struct CardView: View {
         .animation(.easeOut(duration: 0.12), value: selected)
         .contentShape(Rectangle())
         .onHover { model.hoveredID = $0 ? item.id : (model.hoveredID == item.id ? nil : model.hoveredID) }
-        .onTapGesture(count: 2) { model.paste(item) }
+        .onTapGesture(count: 2) { model.paste(item, plain: NSEvent.modifierFlags.contains(.shift)) }
         .onTapGesture { model.selectedID = item.id }
         .draggable(String(item.id))
         .contextMenu { CardMenu(item: item) }
@@ -96,6 +101,17 @@ struct CardView: View {
             .transition(.scale.combined(with: .opacity))
     }
 
+    private var plainBadge: some View {
+        Label("Plain text", systemImage: "textformat.size.smaller")
+            .font(.system(size: 10.5, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(Capsule().fill(Color.orange))
+            .overlay(Capsule().strokeBorder(.white.opacity(0.85), lineWidth: 1.5))
+            .offset(x: 7, y: -7)
+            .transition(.scale.combined(with: .opacity))
+    }
+
     @ViewBuilder private var pinDrop: some View {
         if model.pinDropID == item.id {
             Image(systemName: "pin.fill")
@@ -114,7 +130,7 @@ struct CardView: View {
         return HStack(alignment: .center, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 5) {
-                    Text(item.displayTitle ?? item.kind.label).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    Text(item.displayTitle ?? (item.maskedPreview != nil ? item.sensitiveLabel : nil) ?? item.kind.label).font(.system(size: 13, weight: .semibold)).lineLimit(1)
                     if item.isPinned { Image(systemName: "pin.fill").font(.system(size: 10)) }
                     if item.isSensitive { Image(systemName: "lock.fill").font(.system(size: 10)) }
                 }
@@ -210,6 +226,29 @@ struct CardView: View {
         }
     }
 
+    /// Large, faint source-app icon behind the preview: identity at a glance without competing with content.
+    private var watermark: some View {
+        Image(nsImage: Visuals.shared.icon(for: item.sourceBundleID))
+            .resizable()
+            .frame(width: 118, height: 118)
+            .opacity(0.11)
+            .saturation(0.6)
+            .rotationEffect(.degrees(-12))
+            .offset(x: 26, y: 30)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+
+    private func maskedView(_ masked: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(item.sensitiveLabel ?? "Sensitive", systemImage: "lock.shield.fill")
+                .font(.system(size: 11, weight: .semibold)).foregroundStyle(.orange)
+            Text(masked).font(.system(size: 17, weight: .semibold, design: .monospaced)).lineLimit(2)
+            Text("Masked · Space to reveal").font(.system(size: 10.5)).foregroundStyle(.secondary)
+        }
+        .padding(12)
+    }
+
     private var plainText: some View {
         Text(String((item.text ?? "").prefix(900))).font(.system(size: 12.5)).padding(12)
     }
@@ -223,6 +262,10 @@ struct CardView: View {
 
     private var footer: some View {
         HStack(spacing: 4) {
+            if selected, item.tags.isEmpty {
+                Text(item.hasFormatting ? "↩ paste · ⇧↩ plain" : "↩ paste")
+                    .font(.system(size: 10, weight: .medium)).foregroundStyle(.tertiary).lineLimit(1)
+            }
             ForEach(item.tags.prefix(3), id: \.self) { tag in
                 Text("#" + tag).font(.system(size: 10, weight: .medium)).lineLimit(1)
                     .padding(.horizontal, 5).padding(.vertical, 2)
