@@ -350,3 +350,62 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
         #expect(Snippet.hasPlaceholders("x {uuid}") && !Snippet.hasPlaceholders("x {other}"))
     }
 }
+
+@Suite struct BackupTests {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("mypaste-backup-\(UUID().uuidString)")
+
+    @Test func roundTripMergesAndSkipsSensitive() throws {
+        let src = try ClipStore(directory: root.appendingPathComponent("src"))
+        let board = try src.createPinboard(name: "Work", colorHex: "#3B82F6")
+        let pinned = try src.insert(NewCapture(kind: .text, text: "pinned note", contentHash: "p"), sensitiveTTL: 600)
+        try src.pin(pinned, to: board)
+        try src.setTags(pinned, ["sql"])
+        let img = try src.insert(NewCapture(kind: .image, text: nil, imagePNG: Data([9, 9]), imageWidth: 1, imageHeight: 1, contentHash: "img"), sensitiveTTL: 600)
+        try src.pin(img, to: board)
+        _ = try src.insert(NewCapture(kind: .text, text: "history only", contentHash: "h"), sensitiveTTL: 600)
+        let secret = try src.insert(NewCapture(kind: .text, text: "482913", contentHash: "s", sensitiveReason: "otp"), sensitiveTTL: 600)
+        try src.pin(secret, to: board)
+
+        let pinsOnly = root.appendingPathComponent("pins")
+        let s1 = try Backup.export(src, includeHistory: false, to: pinsOnly)
+        #expect(s1 == Backup.Summary(items: 2, pinboards: 1, skippedSensitive: 1, skippedDuplicates: 0))
+
+        let full = root.appendingPathComponent("full")
+        #expect(try Backup.export(src, includeHistory: true, to: full).items == 3)
+
+        let dst = try ClipStore(directory: root.appendingPathComponent("dst"))
+        _ = try dst.insert(NewCapture(kind: .text, text: "pinned note", contentHash: "p"), sensitiveTTL: 600) // already present
+        let r = try Backup.importBackup(from: full, into: dst)
+        #expect(r.items == 2 && r.skippedDuplicates == 1)
+        let items = try dst.allItems()
+        #expect(items.count == 3)
+        let note = items.first { $0.text == "pinned note" }!
+        #expect(note.isPinned && note.tags == ["sql"])
+        let image = items.first { $0.kind == .image }!
+        #expect(dst.blob(image, "png") == Data([9, 9]))
+        #expect(try dst.pinboards().map(\.name) == ["Work"])
+        #expect(!items.contains { $0.isSensitive })
+
+        // Importing again is a no-op.
+        #expect(try Backup.importBackup(from: full, into: dst).items == 0)
+        #expect(try dst.allItems().count == 3)
+    }
+}
+
+@Suite struct BackupArchiveTests {
+    @Test func zipRoundTrip() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("mypaste-zip-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let src = try ClipStore(directory: root.appendingPathComponent("src"))
+        let board = try src.createPinboard(name: "Snippets", colorHex: "#10B981")
+        let id = try src.insert(NewCapture(kind: .text, text: "SELECT 1", contentHash: "q"), sensitiveTTL: 600)
+        try src.pin(id, to: board)
+        let archive = root.appendingPathComponent("backup.mypaste")
+        let out = try BackupArchive.export(store: src, includeHistory: false, to: archive)
+        #expect(out.items == 1 && FileManager.default.fileExists(atPath: archive.path))
+        let dst = try ClipStore(directory: root.appendingPathComponent("dst"))
+        let inn = try BackupArchive.importArchive(archive, into: dst)
+        #expect(inn.items == 1)
+        #expect(try dst.allItems().first?.isPinned == true)
+    }
+}

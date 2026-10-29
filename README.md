@@ -50,6 +50,21 @@ source app, `#tag` by tag. Tokens combine.
 
 Drag a card onto a pinboard tab to pin it. Right-click a card for everything else.
 
+Hold ⇧ in the panel for plain-text mode: ↩, ⌘1–9 and double-click all paste without formatting.
+
+Snippets: a pinned item containing `{date}` `{time}` `{datetime}` (IST) `{clipboard}` `{uuid}` or
+`{cursor}` is expanded at paste time; the caret lands at `{cursor}`.
+
+Privacy: OTPs, API keys, JWTs, private keys and password-like text are blurred; PAN, Aadhaar, IFSC,
+UPI IDs, account and card numbers are always masked in previews (e.g. `••••1234`). All of them expire
+after the sensitive TTL unless pinned, and existing history is re-scanned at launch.
+
+Backup: Settings → Backup exports a `.mypaste` zip of pinboards (optionally history). Sensitive items are
+never exported. Import merges pinboards by name and items by content.
+
+Diagnostics: errors go to `~/Library/Application Support/myPaste/logs/` (never clipboard contents);
+`MYPASTE_PERF=1` logs main-thread hangs over 100 ms. `scripts/make-icon.sh` regenerates the app icon.
+
 Data: `~/Library/Application Support/myPaste/` (SQLite + blobs). Set `MYPASTE_DATA_DIR` to run against
 a throwaway database. Post the distributed notification `local.mypaste.toggle` to toggle the strip from scripts.
 

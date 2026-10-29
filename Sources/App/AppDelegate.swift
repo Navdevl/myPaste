@@ -37,10 +37,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppLog.start()
         Perf.startHangDetector()
         do {
             store = try ClipStore(directory: Self.dataDirectory)
         } catch {
+            AppLog.error("Opening database failed", error)
             let alert = NSAlert()
             alert.messageText = "myPaste couldn't open its database"
             alert.informativeText = "\(error)"
@@ -68,11 +70,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         monitor.start()
 
         // Catch identifiers in history captured before the detector knew about them.
-        _ = try? store.rescanSensitive(ttl: prefs.sensitiveTTL)
-        _ = try? store.prune(prefs.retention)
+        do {
+            let flagged = try store.rescanSensitive(ttl: prefs.sensitiveTTL)
+            if flagged > 0 { AppLog.info("Rescan flagged \(flagged) existing items as sensitive") }
+            try store.prune(prefs.retention)
+        } catch {
+            AppLog.error("Startup maintenance failed", error)
+        }
         pruneTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             guard let self else { return }
-            _ = try? self.store.prune(self.prefs.retention)
+            do { try self.store.prune(self.prefs.retention) } catch { AppLog.error("Prune failed", error) }
         }
         enrichment.backfill()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
@@ -85,9 +92,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.panel.toggle()
         }
 
-        if !UserDefaults.standard.bool(forKey: "didPromptAccessibility") {
-            UserDefaults.standard.set(true, forKey: "didPromptAccessibility")
-            if !Paster.isTrusted { Paster.requestTrust() }
+        // First run: guided onboarding (permission, shortcuts). Later runs: just warn about shortcut clashes.
+        if !UserDefaults.standard.bool(forKey: "didOnboard") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.showWelcome() }
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                ShortcutConflicts.warnIfNeeded { [weak self] in self?.openSettings() }
+            }
         }
 
         // Launch at login defaults to on, but only for the installed copy, not build/ or test runs.
@@ -102,7 +113,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: Capture / paste
 
     private func didCapture(_ capture: NewCapture) {
-        guard let id = try? store.insert(capture, sensitiveTTL: prefs.sensitiveTTL) else { return }
+        let id: Int64
+        do {
+            id = try store.insert(capture, sensitiveTTL: prefs.sensitiveTTL)
+        } catch {
+            AppLog.error("Saving a \(capture.kind.rawValue) capture failed", error)
+            return
+        }
         _ = try? store.prune(prefs.retention)
         guard let item = try? store.item(id: id) else { return }
         enrichment.process(item)
@@ -166,6 +183,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         default:
             NSSound.beep()
         }
+    }
+
+    private var welcomeWindow: NSWindow?
+
+    @objc func showWelcome() {
+        panel?.hide()
+        if welcomeWindow == nil {
+            let view = OnboardingView { [weak self] in
+                UserDefaults.standard.set(true, forKey: "didOnboard")
+                self?.welcomeWindow?.close()
+            }
+            let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+            window.styleMask = [.titled, .closable, .fullSizeContentView]
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.isMovableByWindowBackground = true
+            window.isReleasedWhenClosed = false
+            window.setContentSize(NSSize(width: 620, height: 460))
+            window.center()
+            welcomeWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        welcomeWindow?.makeKeyAndOrderFront(nil)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -236,15 +276,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openSettings() {
         panel.hide()
         if settingsWindow == nil {
-            let view = SettingsView(prefs: prefs, model: model)
+            let view = SettingsView(prefs: prefs, model: model) { [weak self] in self?.showWelcome() }
             let window = NSWindow(contentViewController: NSHostingController(rootView: view))
             window.title = "myPaste Settings"
-            window.styleMask = [.titled, .closable]
+            window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
+            window.titlebarAppearsTransparent = true
+            window.toolbarStyle = .unified
             window.isReleasedWhenClosed = false
+            // The hosting controller sizes the window lazily; size it first so center() uses the real frame.
+            window.setContentSize(NSSize(width: 840, height: 580))
             window.center()
             settingsWindow = window
         }
         NSApp.activate(ignoringOtherApps: true)
+        if let w = settingsWindow, let screen = w.screen ?? NSScreen.main, !screen.visibleFrame.contains(w.frame) { w.center() }
         settingsWindow?.makeKeyAndOrderFront(nil)
     }
 }

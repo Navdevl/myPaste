@@ -403,7 +403,7 @@ public final class ClipStore {
         }
     }
 
-    private static func reindex(_ db: Database, _ id: Int64) throws {
+    static func reindex(_ db: Database, _ id: Int64) throws {
         guard let r = try Row.fetchOne(db, sql: "SELECT text, title, ocrText, linkTitle, filePaths FROM item WHERE id = ?", arguments: [id]) else { return }
         let tags = try String.fetchAll(db, sql: "SELECT name FROM tag WHERE itemID = ?", arguments: [id])
         let paths = decodePaths(r["filePaths"]).map { ($0 as NSString).lastPathComponent }
