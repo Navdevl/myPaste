@@ -158,6 +158,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private var holdTimer: Timer?
     private var shiftTimer: Timer?
+    private var optionTimer: Timer?
 
     private func installKeyMonitor() {
         removeKeyMonitor()
@@ -168,6 +169,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             // A chord started before the hold delay: it's a shortcut, not a request for hints.
             self.holdTimer?.invalidate()
             self.shiftTimer?.invalidate()
+            self.optionTimer?.invalidate()
             return self.handle(event) ? nil : event
         }
     }
@@ -193,6 +195,17 @@ final class PanelController: NSObject, NSWindowDelegate {
             shiftTimer?.invalidate()
             if model.plainMode { withAnimation(.easeOut(duration: 0.15)) { model.plainMode = false } }
         }
+        // ⌥ alone, held: show the ⌥0–9 numbers on the tabs.
+        if flags == .option {
+            if !model.optionHints, optionTimer?.isValid != true {
+                optionTimer = Timer.scheduledTimer(withTimeInterval: Self.holdDelay * 0.8, repeats: false) { [weak self] _ in
+                    withAnimation(.easeOut(duration: 0.15)) { self?.model.optionHints = true }
+                }
+            }
+        } else {
+            optionTimer?.invalidate()
+            if model.optionHints { withAnimation(.easeOut(duration: 0.12)) { model.optionHints = false } }
+        }
         if flags.contains(.command) {
             guard !model.editMode, holdTimer?.isValid != true, model.editor == nil else { return }
             holdTimer = Timer.scheduledTimer(withTimeInterval: Self.holdDelay, repeats: false) { [weak self] _ in
@@ -217,11 +230,6 @@ final class PanelController: NSObject, NSWindowDelegate {
 
         if let editor = model.editor {
             if code == kVK_Escape { model.editor = nil; return true }
-            if case .pinPicker(let id) = editor, flags.isEmpty, let n = Self.digit(ch, code), n >= 1 {
-                if n <= model.pinboards.count, let item = model.item(id) { model.togglePin(item, board: model.pinboards[n - 1].id) }
-                model.editor = nil
-                return true
-            }
             if case .info = editor, code == kVK_ANSI_I, flags == .command { model.editor = nil; return true }
             return false
         }
@@ -240,6 +248,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         case (kVK_DownArrow, []): model.switchTab(1); return true
         case (kVK_UpArrow, .command), (kVK_Home, _): model.selectEdge(last: false); return true
         case (kVK_DownArrow, .command), (kVK_End, _): model.selectEdge(last: true); return true
+        case (kVK_Tab, .control): model.switchTab(1); return true
+        case (kVK_Tab, [.control, .shift]): model.switchTab(-1); return true
         case (kVK_Tab, []): model.cycleKindFilter(1); return true
         case (kVK_Tab, .shift): model.cycleKindFilter(-1); return true
 

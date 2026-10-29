@@ -2,6 +2,15 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
+## 1.2.0 (2026-10-29)
+
+- Quick pin: double-tap ⌃ in the strip pins the selected card; anywhere else it pins your latest copy.
+  New pin picker with coloured board chips, 1–9, type-to-filter and ↩ to create a board.
+- Board switching: ⇧⌘V again cycles tabs, ⌃Tab / ⌃⇧Tab, hold ⌥ to see ⌥0–9 numbers.
+- Motion: gliding selection ring, light sweep, neighbour parallax, trackpad haptics.
+- Settings → Appearance: a switch for each of the above (all off = 1.1 behaviour).
+- Build: plain SwiftPM (Command Line Tools workaround removed); UI tests cover the new features.
+
 ## 1.1.0 (2026-10-29)
 
 - Smart actions: JWT decode, Jira keys → open in Jira, UUIDs, Unix timestamps (IST), GitHub PR/issue refs.

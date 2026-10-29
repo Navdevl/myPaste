@@ -13,10 +13,7 @@ make version   # prints VERSION and the build number
 ```
 
 SwiftPM package: GRDB for storage, KeyboardShortcuts for global hotkeys, Liquid Glass on macOS 26.
-Build through the Makefile, not bare `swift build`, until the stale files below are deleted. The local Command Line Tools still carry two
-stale files from an older install (`usr/include/swift/module.modulemap` and PackageDescription's
-`.private.swiftinterface`). `build-support/clt-overlay.yaml.in` hides them per build without sudo.
-Deleting those two files with sudo fixes this for good.
+`make` wraps `swift build` and assembles/signs the .app bundle.
 
 KeyboardShortcuts is pinned to 1.15.0, the last release without `#Preview` macros (those need Xcode).
 Settings uses its own recorder rather than `KeyboardShortcuts.Recorder`, whose localized strings
@@ -29,6 +26,9 @@ come from a SwiftPM resource bundle it looks for at the .app root, where a signe
 | ⇧⌘V | Open / close the strip |
 | hold ⌘ | Edit mode: cards jiggle, ✕ delete buttons, ⌘1–9 badges, shortcut bar |
 | ← → / ↑ ↓ | Select card / switch History and pinboard tabs |
+| ⇧⌘V again, ⌃Tab / ⌃⇧Tab | Next / previous board |
+| hold ⌥ | Show ⌥0–9 board numbers |
+| ⌃⌃ (double-tap Control) | Pin picker for the selected card; outside the strip, for your latest copy |
 | ⌘↑ ⌘↓ (Home/End) | First / last card |
 | Tab / ⇧Tab | Cycle the type filter |
 | ⌥0–9 | History / Nth pinboard |

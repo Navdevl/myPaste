@@ -13,9 +13,12 @@ struct CardView: View {
     private var concealed: Bool { item.isSensitive && item.maskedPreview == nil && !selected && model.hoveredID != item.id }
 
     @State private var appeared = true
+    @State private var sweep: CGFloat = -1.5
+    @Environment(\.selectionNamespace) private var selectionNS
 
     var body: some View {
         card
+            .modifier(Parallax(offset: parallaxOffset))
             .overlay(alignment: .top) { pinDrop }
             .overlay(alignment: .topLeading) { if model.editMode { deleteButton } }
             .overlay(alignment: .topTrailing) { if model.editMode, index < 9 { shortcutBadge } }
@@ -62,17 +65,56 @@ struct CardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(selected ? Color.accentColor : Color.primary.opacity(0.08), lineWidth: selected ? 3 : 1)
+                .strokeBorder(selected && !glide ? Color.accentColor : Color.primary.opacity(0.08), lineWidth: selected && !glide ? 3 : 1)
         )
+        .overlay { sweepLayer }
+        .overlay {
+            // One ring shared across cards via matched geometry: it travels instead of jumping.
+            if selected, glide, let selectionNS {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.accentColor, lineWidth: 3)
+                    .shadow(color: Color.accentColor.opacity(0.45), radius: 8)
+                    .matchedGeometryEffect(id: "selection-ring", in: selectionNS)
+                    .allowsHitTesting(false)
+            }
+        }
         .shadow(color: .black.opacity(selected ? 0.28 : 0.12), radius: selected ? 10 : 4, y: 2)
         .scaleEffect(selected ? 1.0 : 0.97)
         .animation(.easeOut(duration: 0.12), value: selected)
         .contentShape(Rectangle())
         .onHover { model.hoveredID = $0 ? item.id : (model.hoveredID == item.id ? nil : model.hoveredID) }
         .onTapGesture(count: 2) { model.paste(item, plain: NSEvent.modifierFlags.contains(.shift)) }
-        .onTapGesture { model.selectedID = item.id }
+        .onTapGesture { model.select(item.id) }
         .draggable(String(item.id))
         .contextMenu { CardMenu(item: item) }
+        .onChange(of: selected) { _, isSelected in
+            guard isSelected, model.prefs.sweepSelection else { return }
+            sweep = -1.5
+            withAnimation(.easeOut(duration: 0.5).delay(0.06)) { sweep = 1.5 }
+        }
+    }
+
+    private var glide: Bool { model.prefs.glideSelection }
+
+    /// Signed distance from the selected card, for the neighbour lean (nil = no parallax).
+    private var parallaxOffset: Int? {
+        guard model.prefs.parallax, let sel = model.selectedIndex else { return nil }
+        let d = index - sel
+        return abs(d) <= 2 && d != 0 ? d : nil
+    }
+
+    /// A soft diagonal band of light that crosses the card once when it becomes selected.
+    private var sweepLayer: some View {
+        GeometryReader { geo in
+            LinearGradient(colors: [.white.opacity(0), .white.opacity(0.22), .white.opacity(0)], startPoint: .leading, endPoint: .trailing)
+                .frame(width: geo.size.width * 0.55)
+                .rotationEffect(.degrees(18))
+                .offset(x: sweep * geo.size.width)
+                .blendMode(.plusLighter)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .opacity(sweep > -1.4 && sweep < 1.4 ? 1 : 0)
+        .allowsHitTesting(false)
     }
 
     private var deleteButton: some View {
@@ -353,5 +395,29 @@ private struct Jiggle: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// Neighbours lean slightly toward the selection (1 card away: 6°, 2 away: 3°).
+private struct Parallax: ViewModifier {
+    let offset: Int?
+
+    func body(content: Content) -> some View {
+        let d = offset ?? 0
+        let angle = d == 0 ? 0 : Double(d > 0 ? 1 : -1) * (abs(d) == 1 ? 6 : 3)
+        content
+            .rotation3DEffect(.degrees(angle), axis: (x: 0, y: 1, z: 0), anchor: d > 0 ? .leading : .trailing, perspective: 0.5)
+            .scaleEffect(d == 0 ? 1 : 0.985)
+    }
+}
+
+private struct SelectionNamespaceKey: EnvironmentKey {
+    static let defaultValue: Namespace.ID? = nil
+}
+
+extension EnvironmentValues {
+    var selectionNamespace: Namespace.ID? {
+        get { self[SelectionNamespaceKey.self] }
+        set { self[SelectionNamespaceKey.self] = newValue }
     }
 }

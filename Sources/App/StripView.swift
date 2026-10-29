@@ -4,6 +4,7 @@ import MyPasteCore
 struct StripView: View {
     @EnvironmentObject var model: AppModel
     @FocusState private var searchFocused: Bool
+    @Namespace private var selectionNS
 
     var body: some View {
         ZStack {
@@ -20,7 +21,7 @@ struct StripView: View {
             if let editor = model.editor {
                 Color.black.opacity(0.25).onTapGesture { model.editor = nil }
                 switch editor {
-                case .pinPicker(let id): PinPickerView(itemID: id)
+                case .pinPicker(let id): PinPickerView(itemID: id) { model.editor = nil }
                 case .info(let id): InfoView(itemID: id)
                 case .actions(let id): ActionsView(itemID: id)
                 default: EditorView()
@@ -79,9 +80,11 @@ struct StripView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    TabChip(title: "History", color: nil, symbol: "clock", active: model.tab == .history) { model.tab = .history }
-                    ForEach(model.pinboards) { board in
-                        TabChip(title: board.name, color: Color(hex: board.colorHex), symbol: nil, active: model.tab == .board(board.id)) {
+                    TabChip(title: "History", color: nil, symbol: "clock", active: model.tab == .history,
+                            hint: model.optionHints ? "⌥0" : nil) { model.tab = .history }
+                    ForEach(Array(model.pinboards.enumerated()), id: \.element.id) { i, board in
+                        TabChip(title: board.name, color: Color(hex: board.colorHex), symbol: nil, active: model.tab == .board(board.id),
+                                hint: model.optionHints && i < 9 ? "⌥\(i + 1)" : nil) {
                             model.tab = .board(board.id)
                         }
                         .dropDestination(for: String.self) { ids, _ in
@@ -171,6 +174,7 @@ struct StripView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12) // headroom for the edit-mode ✕ and ⌘N badges
+                .environment(\.selectionNamespace, selectionNS)
             }
             .overlay {
                 if model.visible.isEmpty { emptyState }
@@ -203,6 +207,7 @@ private struct TabChip: View {
     let color: Color?
     let symbol: String?
     let active: Bool
+    var hint: String? = nil
     let action: () -> Void
 
     var body: some View {
@@ -211,12 +216,21 @@ private struct TabChip: View {
                 if let color { Circle().fill(color).frame(width: 8, height: 8) }
                 if let symbol { Image(systemName: symbol).font(.system(size: 11)) }
                 Text(title).font(.system(size: 12.5, weight: active ? .semibold : .regular)).lineLimit(1)
+                if let hint {
+                    Text(hint).font(.system(size: 10, weight: .bold, design: .rounded))
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(Capsule().fill(Color.accentColor.opacity(0.85))).foregroundStyle(.white)
+                        .transition(.scale.combined(with: .opacity))
+                        .accessibilityIdentifier("tab.hint")
+                }
             }
             .padding(.horizontal, 11).padding(.vertical, 5)
             .background(active ? AnyShapeStyle(Color.accentColor.opacity(0.22)) : AnyShapeStyle(.quaternary.opacity(0.5)), in: Capsule())
             .overlay(Capsule().strokeBorder(active ? Color.accentColor.opacity(0.6) : .clear))
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("tab.\(title)")
+        .accessibilityValue(active ? "active" : "")
     }
 }
 
@@ -427,7 +441,7 @@ struct QuickLookView: View {
 
 private struct ShortcutBar: View {
     private let hints: [(String, String)] = [
-        ("⌘1–9", "Paste"), ("⌘J", "Smart action"), ("⌘K", "Actions"), ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo"), ("⌘P", "Pin"), ("⌘⇧P", "Pin to…"),
+        ("⌘1–9", "Paste"), ("⌘J", "Smart action"), ("⌘K", "Actions"), ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo"), ("⌘P", "Pin"), ("⌃⌃", "Quick pin"),
         ("⌘O", "Open"), ("⌥⌘C", "Copy plain"), ("⌘I", "Info"), ("⌘R", "Rename"), ("⌘T", "Tags"),
         ("⌘E", "Edit"), ("⌘↑↓", "First/last"), ("⌥0–9", "Boards"),
     ]
@@ -447,43 +461,6 @@ private struct ShortcutBar: View {
         .padding(.horizontal, 16).padding(.vertical, 9)
         .glassSurface(cornerRadius: 16)
         .shadow(color: .black.opacity(0.2), radius: 8, y: 2)
-    }
-}
-
-// MARK: Pin picker (⌘⇧P)
-
-private struct PinPickerView: View {
-    let itemID: Int64
-    @EnvironmentObject var model: AppModel
-
-    var body: some View {
-        let item = model.item(itemID)
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Pin to…").font(.headline)
-            ForEach(Array(model.pinboards.prefix(9).enumerated()), id: \.element.id) { i, board in
-                Button {
-                    if let item { model.togglePin(item, board: board.id) }
-                    model.editor = nil
-                } label: {
-                    HStack(spacing: 8) {
-                        Text("\(i + 1)").font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundStyle(.secondary).frame(width: 14)
-                        Circle().fill(Color(hex: board.colorHex)).frame(width: 9, height: 9)
-                        Text(board.name)
-                        Spacer(minLength: 20)
-                        if item?.pinboardIDs.contains(board.id) == true { Image(systemName: "checkmark").foregroundStyle(.tint) }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            Divider()
-            Button("New Pinboard… (⌘N)") { model.editor = .newBoard(pinItem: itemID) }.buttonStyle(.plain).foregroundStyle(.tint)
-            Text("Press 1–9 to toggle · Esc to close").font(.caption).foregroundStyle(.secondary)
-        }
-        .frame(width: 260)
-        .padding(16)
-        .background(Color.solidSurface, in: RoundedRectangle(cornerRadius: 14))
-        .shadow(radius: 20)
     }
 }
 

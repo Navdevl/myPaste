@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import MyPasteCore
 import KeyboardShortcuts
 import ServiceManagement
@@ -26,6 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var settingsWindow: NSWindow?
     private var pruneTimer: Timer?
+    private let doubleCtrl = DoubleTapDetector(modifier: .control)
+    private var globalPicker: GlobalPinPicker!
+    private var prefsObserver: AnyCancellable?
 
     /// MYPASTE_DATA_DIR lets a test instance run against a throwaway database.
     static var dataDirectory: URL {
@@ -66,6 +70,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.onAddToStack = { [weak self] item in self?.panel.hide(); self?.stack.append(item) }
         model.onOpenSettings = { [weak self] in self?.openSettings() }
 
+        globalPicker = GlobalPinPicker(model: model)
+        doubleCtrl.onDoubleTap = { [weak self] in self?.doubleControl() }
+        configureDoubleTap()
+        prefsObserver = prefs.objectWillChange.sink { [weak self] _ in
+            DispatchQueue.main.async { self?.configureDoubleTap() }
+        }
         registerHotKeys()
         setupStatusItem()
         monitor.start()
@@ -234,8 +244,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// KeyboardShortcuts re-binds automatically when the user records a new combo in Settings.
     private func registerHotKeys() {
-        KeyboardShortcuts.onKeyDown(for: .openPanel) { [weak self] in self?.panel.toggle() }
+        KeyboardShortcuts.onKeyDown(for: .openPanel) { [weak self] in self?.openHotkey() }
         KeyboardShortcuts.onKeyDown(for: .pasteStack) { [weak self] in self?.stack.toggle() }
+    }
+
+    /// ⇧⌘V: opens the strip; pressed again while open it moves to the next tab (History → boards → History).
+    private func openHotkey() {
+        if panel.isVisible, prefs.hotkeyCyclesTabs, model.editor == nil {
+            model.switchTab(1)
+        } else {
+            panel.toggle()
+        }
+    }
+
+    private func configureDoubleTap() {
+        if prefs.doubleCtrlGlobal || prefs.doubleCtrlInPanel { doubleCtrl.startGlobal() } else { doubleCtrl.stopGlobal() }
+    }
+
+    /// Double-⌃: pin the selected card when the strip is open, otherwise the latest capture.
+    private func doubleControl() {
+        if panel.isVisible {
+            guard prefs.doubleCtrlInPanel, model.editor == nil, let item = model.selectedItem else { return }
+            model.editor = .pinPicker(item.id)
+        } else if prefs.doubleCtrlGlobal, !globalPicker.isVisible {
+            globalPicker.show()
+        }
     }
 
     // MARK: Status item

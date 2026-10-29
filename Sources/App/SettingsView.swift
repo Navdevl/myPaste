@@ -14,7 +14,7 @@ struct SettingsView: View {
     private var pane: Pane { router.pane }
 
     enum Pane: String, CaseIterable, Identifiable {
-        case general, shortcuts, history, privacy, pinboards, backup, about
+        case general, appearance, shortcuts, history, privacy, pinboards, backup, about
         var id: String { rawValue }
 
         var title: String { rawValue.capitalized }
@@ -22,6 +22,7 @@ struct SettingsView: View {
         var symbol: String {
             switch self {
             case .general: return "gearshape.fill"
+            case .appearance: return "sparkles"
             case .shortcuts: return "command"
             case .history: return "clock.fill"
             case .privacy: return "hand.raised.fill"
@@ -34,6 +35,7 @@ struct SettingsView: View {
         var tint: Color {
             switch self {
             case .general: return .gray
+            case .appearance: return .purple
             case .shortcuts: return .indigo
             case .history: return .orange
             case .privacy: return .blue
@@ -46,6 +48,7 @@ struct SettingsView: View {
         var subtitle: String {
             switch self {
             case .general: return "Startup, pasting and permissions"
+            case .appearance: return "Motion, gestures and board switching"
             case .shortcuts: return "Global hotkeys and panel keys"
             case .history: return "What's kept, and for how long"
             case .privacy: return "Excluded apps, secrets and enrichment"
@@ -71,6 +74,7 @@ struct SettingsView: View {
                     PaneHeader(pane: pane)
                     switch pane {
                     case .general: GeneralPane(prefs: prefs, model: model, onShowWelcome: onShowWelcome)
+                    case .appearance: AppearancePane(prefs: prefs)
                     case .shortcuts: ShortcutsPane()
                     case .history: HistoryPane(prefs: prefs, model: model)
                     case .privacy: PrivacyPane(prefs: prefs)
@@ -301,6 +305,45 @@ private struct Stat: View {
     }
 }
 
+// MARK: Appearance
+
+private struct AppearancePane: View {
+    @ObservedObject var prefs: Preferences
+
+    var body: some View {
+        Card(title: "Moving between cards") {
+            toggle("Gliding highlight", "The selection ring slides from card to card instead of jumping", $prefs.glideSelection, "appearance.glide")
+            Divider()
+            toggle("Light sweep", "A soft sheen crosses the card you land on", $prefs.sweepSelection, "appearance.sweep")
+            Divider()
+            toggle("Neighbour parallax", "Cards beside the selection lean toward it", $prefs.parallax, "appearance.parallax")
+            Divider()
+            toggle("Trackpad haptics", "A light tap on each selection change (Force Touch trackpads)", $prefs.haptics, "appearance.haptics")
+        }
+        Card(title: "Quick pin (double-tap ⌃)") {
+            toggle("In the strip", "Double-tap Control to pin the selected card", $prefs.doubleCtrlInPanel, "appearance.ctrlPanel")
+            Divider()
+            toggle("Anywhere", "Double-tap Control in any app to pin what you copied last", $prefs.doubleCtrlGlobal, "appearance.ctrlGlobal")
+        }
+        Card(title: "Pinboards") {
+            toggle("Open shortcut cycles boards", "Pressing ⇧⌘V again while the strip is open moves to the next board", $prefs.hotkeyCyclesTabs, "appearance.cycle")
+            Text("Also: ⌃Tab / ⌃⇧Tab next and previous board · hold ⌥ to see ⌥0–9 board numbers.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        Button("Turn everything off (1.1 behaviour)") {
+            prefs.glideSelection = false; prefs.sweepSelection = false; prefs.parallax = false; prefs.haptics = false
+            prefs.doubleCtrlInPanel = false; prefs.doubleCtrlGlobal = false; prefs.hotkeyCyclesTabs = false
+        }
+        .buttonStyle(.link)
+    }
+
+    private func toggle(_ title: String, _ detail: String, _ on: Binding<Bool>, _ id: String) -> some View {
+        Row(title: title, detail: detail) {
+            Toggle("", isOn: on).toggleStyle(.switch).labelsHidden().accessibilityIdentifier(id)
+        }
+    }
+}
+
 // MARK: Shortcuts
 
 private struct ShortcutsPane: View {
@@ -309,9 +352,10 @@ private struct ShortcutsPane: View {
     private let panelKeys: [(String, String)] = [
         ("← →", "Select"), ("↑ ↓", "Pinboards"), ("↩", "Paste"), ("⇧↩", "Paste plain"), ("⌘1–9", "Quick paste"),
         ("hold ⌘", "Edit mode"), ("hold ⇧", "Plain mode"), ("Space", "Quick Look"), ("⌘J", "Smart action"), ("⌘K", "Actions"),
-        ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo delete"), ("⌘P", "Pin"), ("⌘⇧P", "Pin to…"), ("⌘O", "Open"),
+        ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo delete"), ("⌘P", "Pin"), ("⌘⇧P", "Pin to…"), ("⌃⌃", "Quick pin"), ("⌘O", "Open"),
         ("⌘C", "Copy"), ("⌥⌘C", "Copy plain"), ("⌘I", "Info"), ("⌘R", "Rename"), ("⌘T", "Tags"), ("⌘E", "Edit"),
-        ("⌘↑ ⌘↓", "First / last"), ("Tab", "Type filter"), ("⌥0–9", "Jump to board"), ("Esc", "Close"),
+        ("⌘↑ ⌘↓", "First / last"), ("Tab", "Type filter"), ("⌃Tab", "Next board"), ("⇧⌘V again", "Next board"),
+        ("hold ⌥", "Board numbers"), ("⌥0–9", "Jump to board"), ("Esc", "Close"),
     ]
 
     var body: some View {

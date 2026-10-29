@@ -32,7 +32,14 @@ final class AppModel: ObservableObject {
     @Published var search = "" { didSet { if search != oldValue { recompute(resetSelection: true) } } }
     @Published var kindFilter: KindFilter = .all { didSet { if kindFilter != oldValue { recompute(resetSelection: true) } } }
     @Published var appFilter: String? { didSet { if appFilter != oldValue { recompute(resetSelection: true) } } }
-    @Published var selectedID: Int64?
+    @Published var selectedID: Int64? {
+        didSet {
+            guard selectedID != oldValue else { return }
+            selectedIndex = selectedID.flatMap { id in visible.firstIndex { $0.id == id } }
+        }
+    }
+    /// Index of the selection in `visible`, cached for parallax (cards read it on every render).
+    @Published private(set) var selectedIndex: Int?
     @Published var editor: Editor?
     @Published var quickLookID: Int64?
     @Published var hoveredID: Int64?
@@ -43,6 +50,8 @@ final class AppModel: ObservableObject {
     @Published var editMode = false
     /// Hold-⇧ mode: every paste path (↩, ⌘1–9, double-click) drops formatting.
     @Published var plainMode = false
+    /// Hold-⌥: tabs show their ⌥0–9 jump numbers.
+    @Published var optionHints = false
     /// Bumped on every open; cards use it to run the staggered entrance.
     @Published var entranceToken = 0
     private(set) var shownAt = Date.distantPast
@@ -156,6 +165,7 @@ final class AppModel: ObservableObject {
             list = list.filter { ids.contains($0.id) }
         }
         visible = list
+        selectedIndex = selectedID.flatMap { id in list.firstIndex { $0.id == id } }
         if resetSelection || selectedID == nil || !list.contains(where: { $0.id == selectedID }) {
             selectedID = list.first?.id
         }
@@ -167,16 +177,26 @@ final class AppModel: ObservableObject {
 
     func item(_ id: Int64) -> ClipItem? { items.first { $0.id == id } }
 
-    func moveSelection(_ delta: Int) {
-        guard !visible.isEmpty else { return }
-        let idx = visible.firstIndex { $0.id == selectedID } ?? 0
-        selectedID = visible[max(0, min(visible.count - 1, idx + delta))].id
+    /// All user-driven selection changes go through here: glide animation + haptic tick when enabled.
+    func select(_ id: Int64?) {
+        guard id != selectedID else { return }
+        if prefs.glideSelection || prefs.parallax {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) { selectedID = id }
+        } else {
+            selectedID = id
+        }
+        if prefs.haptics { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
         if quickLookID != nil { quickLookID = selectedID }
     }
 
+    func moveSelection(_ delta: Int) {
+        guard !visible.isEmpty else { return }
+        let idx = visible.firstIndex { $0.id == selectedID } ?? 0
+        select(visible[max(0, min(visible.count - 1, idx + delta))].id)
+    }
+
     func selectEdge(last: Bool) {
-        selectedID = last ? visible.last?.id : visible.first?.id
-        if quickLookID != nil { quickLookID = selectedID }
+        select(last ? visible.last?.id : visible.first?.id)
     }
 
     private var tabs: [Tab] { [.history] + pinboards.map { .board($0.id) } }
@@ -205,6 +225,7 @@ final class AppModel: ObservableObject {
         quickLookID = nil
         editMode = false
         plainMode = false
+        optionHints = false
         if !search.isEmpty { search = "" }
         recompute(resetSelection: true)
         focusToken += 1

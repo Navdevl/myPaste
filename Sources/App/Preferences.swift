@@ -31,6 +31,14 @@ final class Preferences: ObservableObject {
     @Published var capturePaused: Bool { didSet { d.set(capturePaused, forKey: "capturePaused") } }
     @Published var smartActions: Bool { didSet { d.set(smartActions, forKey: "smartActions") } }
     @Published var jiraBaseURL: String { didSet { d.set(jiraBaseURL, forKey: "jiraBaseURL") } }
+    // Appearance & motion (all on by default; all off = the 1.1 behaviour)
+    @Published var glideSelection: Bool { didSet { d.set(glideSelection, forKey: "glideSelection") } }
+    @Published var sweepSelection: Bool { didSet { d.set(sweepSelection, forKey: "sweepSelection") } }
+    @Published var parallax: Bool { didSet { d.set(parallax, forKey: "parallax") } }
+    @Published var haptics: Bool { didSet { d.set(haptics, forKey: "haptics") } }
+    @Published var doubleCtrlInPanel: Bool { didSet { d.set(doubleCtrlInPanel, forKey: "doubleCtrlInPanel") } }
+    @Published var doubleCtrlGlobal: Bool { didSet { d.set(doubleCtrlGlobal, forKey: "doubleCtrlGlobal") } }
+    @Published var hotkeyCyclesTabs: Bool { didSet { d.set(hotkeyCyclesTabs, forKey: "hotkeyCyclesTabs") } }
 
     var retention: RetentionPolicy { RetentionPolicy(maxItems: maxItems, maxDays: maxDays) }
     var sensitiveTTL: TimeInterval { TimeInterval(sensitiveMinutes * 60) }
@@ -41,6 +49,8 @@ final class Preferences: ObservableObject {
             "excludedBundleIDs": Self.defaultExcluded,
             "linkPreviews": true, "ocr": true, "directPaste": true, "capturePaused": false,
             "smartActions": true, "jiraBaseURL": "https://example.atlassian.net",
+            "glideSelection": true, "sweepSelection": true, "parallax": true, "haptics": true,
+            "doubleCtrlInPanel": true, "doubleCtrlGlobal": true, "hotkeyCyclesTabs": true,
         ])
         maxItems = d.integer(forKey: "maxItems")
         maxDays = d.integer(forKey: "maxDays")
@@ -52,5 +62,12 @@ final class Preferences: ObservableObject {
         capturePaused = d.bool(forKey: "capturePaused")
         smartActions = d.bool(forKey: "smartActions")
         jiraBaseURL = d.string(forKey: "jiraBaseURL") ?? ""
+        glideSelection = d.bool(forKey: "glideSelection")
+        sweepSelection = d.bool(forKey: "sweepSelection")
+        parallax = d.bool(forKey: "parallax")
+        haptics = d.bool(forKey: "haptics")
+        doubleCtrlInPanel = d.bool(forKey: "doubleCtrlInPanel")
+        doubleCtrlGlobal = d.bool(forKey: "doubleCtrlGlobal")
+        hotkeyCyclesTabs = d.bool(forKey: "hotkeyCyclesTabs")
     }
 }

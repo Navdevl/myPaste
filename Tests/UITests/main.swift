@@ -327,6 +327,80 @@ func runAll() async {
         await closePanel()
     }
 
+    /// The tab whose accessibility value is "active".
+    func activeTab() -> String? {
+        for id in ["tab.History"] + ((try? store.pinboards()) ?? []).map({ "tab.\($0.name)" }) {
+            if elements(id).contains(where: { $0.value == "active" }) { return String(id.dropFirst(4)) }
+        }
+        return nil
+    }
+
+    func systemEvents(_ commands: [String]) {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        p.arguments = commands.flatMap { ["-e", "tell application \"System Events\" to \($0)"] }
+        try? p.run(); p.waitUntilExit()
+    }
+
+    /// Two quick ⌃ taps in one osascript run (separate runs are too slow for the 0.35 s window).
+    func doubleControl() async {
+        systemEvents(["key down control", "key up control", "key down control", "key up control"])
+        await sleep(0.6)
+    }
+
+    await test("boards: ⌘P creates one; ⇧⌘V again and ⌃Tab cycle tabs; hold ⌥ shows numbers") {
+        await copy("[uitest] board cycling")
+        check(await openPanel(), "strip is visible")
+        await key(35, .maskCommand) // ⌘P → pins to a new "Pinned" board
+        check(await waitFor { (try? store.pinboards().map(\.name))?.contains("Pinned") == true }, "⌘P created the Pinned board")
+        check(await waitFor(2) { activeTab() == "History" }, "starts on History (got \(activeTab() ?? "nil"))")
+        await key(9, [.maskCommand, .maskShift]) // ⇧⌘V while open → next tab
+        check(await waitFor(2) { activeTab() == "Pinned" }, "⇧⌘V moved to Pinned (got \(activeTab() ?? "nil"))")
+        await key(48, .maskControl) // ⌃Tab → wraps to History
+        check(await waitFor(2) { activeTab() == "History" }, "⌃Tab wrapped to History (got \(activeTab() ?? "nil"))")
+        await key(48, [.maskControl, .maskShift])
+        check(await waitFor(2) { activeTab() == "Pinned" }, "⌃⇧Tab went back to Pinned (got \(activeTab() ?? "nil"))")
+        systemEvents(["key down option"])
+        await sleep(0.9)
+        let labels = elements("tab.History").map { [text(of: $0), $0.title ?? "", $0.description ?? ""].joined(separator: " ") }
+        check(labels.contains { $0.contains("⌥0") }, "⌥ held shows tab numbers (History label: \(labels))")
+        systemEvents(["key up option"])
+        await sleep(0.4)
+        check(!elements("tab.History").contains { text(of: $0).contains("⌥") || ($0.description ?? "").contains("⌥") }, "numbers hidden after ⌥ released")
+        await closePanel()
+    }
+
+    await test("double-⌃ in the strip opens the pin picker; 1 pins to the first board") {
+        await copy("[uitest] quick pin in strip")
+        check(await openPanel(), "strip is visible")
+        await key(29, .maskAlternate) // ⌥0 → History (the strip remembers the last tab)
+        check(await waitFor(2) { activeTab() == "History" }, "⌥0 jumped to History")
+        await doubleControl()
+        check(await element("pinpicker", timeout: 2) != nil, "pin picker shown")
+        await sleep(0.3)
+        await key(18) // "1"
+        let pinned = await waitFor {
+            items().first { $0.text == "[uitest] quick pin in strip" }?.isPinned == true
+        }
+        check(pinned, "item pinned to board 1")
+        await closePanel()
+    }
+
+    await test("double-⌃ anywhere opens the global picker; typing a new name creates and pins") {
+        await copy("[uitest] quick pin global")
+        await focusTarget()
+        await doubleControl()
+        guard await element("pinpicker", timeout: 3) != nil else { check(false, "global pin picker shown"); return }
+        systemEvents(["keystroke \"UITest Global\""])
+        await key(K.ret)
+        let ok = await waitFor {
+            guard let board = (try? store.pinboards())?.first(where: { $0.name == "UITest Global" }) else { return false }
+            return items().first { $0.text == "[uitest] quick pin global" }?.pinboardIDs.contains(board.id) == true
+        }
+        check(ok, "new board created and latest item pinned to it")
+        check(await waitFor(2) { elements("pinpicker").isEmpty }, "picker closed")
+    }
+
     await test("Settings → Backup: Export and Import buttons") {
         let id = try store.insert(NewCapture(kind: .text, text: "[uitest] pinned for backup", contentHash: "uitest:backup"), sensitiveTTL: 600)
         try store.pin(id, to: try store.createPinboard(name: "UITest Board", colorHex: "#10B981"))
@@ -334,12 +408,14 @@ func runAll() async {
         guard let export = await element("backup.export", timeout: 5) else { check(false, "Export button found"); return }
         check(export.press(), "Export pressed")
         check(await waitFor(5) { FileManager.default.fileExists(atPath: exportURL.path) }, "archive written")
-        check(await element("backup.status", timeout: 3).map { text(of: $0).contains("Exported 1 items") } ?? false, "export status shown")
+        check(await element("backup.status", timeout: 3).map { text(of: $0).contains("Exported") } ?? false, "export status shown")
 
         let fresh = try ClipStore(directory: work.appendingPathComponent("verify"))
         let summary = try BackupArchive.importArchive(exportURL, into: fresh)
         let boards = try fresh.pinboards().map(\.name)
-        check(summary.items == 1 && boards == ["UITest Board"], "archive contains the pinned item and board")
+        let names = try fresh.allItems().compactMap(\.text)
+        check(summary.items >= 1 && boards.contains("UITest Board") && names.contains("[uitest] pinned for backup"),
+              "archive contains the pinned item and its board")
 
         guard let importButton = await element("backup.import") else { check(false, "Import button found"); return }
         check(importButton.press(), "Import pressed")
