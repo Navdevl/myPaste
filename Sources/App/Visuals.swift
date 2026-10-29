@@ -74,6 +74,34 @@ final class Visuals {
                        brightness: min(bri[best] / w, 0.62), alpha: 1)
     }
 
+    /// Pays the first-open cost at launch: icons and accent colours for recent apps (main thread, a few ms
+    /// each) and thumbnails for the first screenful (background).
+    func prewarm(_ items: [ClipItem], store: ClipStore) {
+        var seen = Set<String?>()
+        for item in items.prefix(200) where seen.insert(item.sourceBundleID).inserted {
+            _ = icon(for: item.sourceBundleID)
+            _ = accent(for: item.sourceBundleID)
+        }
+        for item in items.prefix(12) {
+            if item.hasImage { decodeQueue.async { _ = self.thumbnail(for: item, store: store) } }
+            if item.hasLinkImage { decodeQueue.async { _ = self.thumbnail(for: item, store: store, ext: "link.png") } }
+            if item.hasLinkIcon { decodeQueue.async { _ = self.thumbnail(for: item, store: store, ext: "icon.png", maxSide: 64) } }
+        }
+    }
+
+    private let decodeQueue = DispatchQueue(label: "mypaste.thumbs", qos: .userInitiated, attributes: .concurrent)
+
+    func cachedThumbnail(for item: ClipItem, ext: String, maxSide: Int) -> NSImage? {
+        thumbs.object(forKey: "\(item.uuid).\(ext).\(maxSide)" as NSString)
+    }
+
+    /// Decodes off the main thread; screenshots took 100–400 ms each to downsample on the main thread.
+    func loadThumbnail(for item: ClipItem, store: ClipStore, ext: String, maxSide: Int) async -> NSImage? {
+        await withCheckedContinuation { cont in
+            decodeQueue.async { cont.resume(returning: self.thumbnail(for: item, store: store, ext: ext, maxSide: maxSide)) }
+        }
+    }
+
     func thumbnail(for item: ClipItem, store: ClipStore, ext: String = "png", maxSide: Int = 480) -> NSImage? {
         let key = "\(item.uuid).\(ext).\(maxSide)" as NSString
         if let t = thumbs.object(forKey: key) { return t }
@@ -89,8 +117,20 @@ final class Visuals {
         return image
     }
 
-    func fullImage(for item: ClipItem, store: ClipStore) -> NSImage? {
-        NSImage(contentsOf: store.blobURL(item.uuid, "png"))
+    func cachedRichText(for item: ClipItem, limit: Int) -> AttributedString? {
+        rich.object(forKey: "\(item.uuid).\(limit)" as NSString).flatMap { try? AttributedString($0, including: \.appKit) }
+    }
+
+    /// RTF parses on a background queue; HTML import uses WebKit and must stay on the main thread,
+    /// so it runs after the card's first frame instead of blocking it.
+    func loadRichText(for item: ClipItem, store: ClipStore, limit: Int) async -> AttributedString? {
+        if item.hasRTF {
+            return await withCheckedContinuation { cont in
+                decodeQueue.async { cont.resume(returning: self.richText(for: item, store: store, limit: limit)) }
+            }
+        }
+        await Task.yield()
+        return await MainActor.run { richText(for: item, store: store, limit: limit) }
     }
 
     /// Rendered RTF/HTML, truncated for card previews.
@@ -188,5 +228,49 @@ extension ClipItem {
     /// One-line summary that never leaks a masked value (HUDs, toasts).
     var safeSummary: String {
         (maskedPreview ?? title ?? text ?? kind.label).replacingOccurrences(of: "\n", with: " ")
+    }
+}
+
+/// Thumbnail that never decodes on the main thread: cached image immediately, else placeholder until loaded.
+struct AsyncThumbnail<Content: View, Placeholder: View>: View {
+    let item: ClipItem
+    let store: ClipStore
+    var ext = "png"
+    var maxSide = 480
+    @ViewBuilder let content: (NSImage) -> Content
+    @ViewBuilder let placeholder: () -> Placeholder
+    @State private var image: NSImage?
+
+    var body: some View {
+        Group {
+            if let img = image ?? Visuals.shared.cachedThumbnail(for: item, ext: ext, maxSide: maxSide) {
+                content(img)
+            } else {
+                placeholder()
+            }
+        }
+        .task(id: "\(item.uuid).\(ext)") {
+            guard Visuals.shared.cachedThumbnail(for: item, ext: ext, maxSide: maxSide) == nil else { return }
+            image = await Visuals.shared.loadThumbnail(for: item, store: store, ext: ext, maxSide: maxSide)
+        }
+    }
+}
+
+/// Rich-text preview that shows plain text first and swaps in the styled version once parsed.
+struct AsyncRichText<Fallback: View>: View {
+    let item: ClipItem
+    let store: ClipStore
+    var limit = 1500
+    @ViewBuilder let fallback: () -> Fallback
+    @State private var attr: AttributedString?
+
+    var body: some View {
+        Group {
+            if let a = attr ?? Visuals.shared.cachedRichText(for: item, limit: limit) { Text(a) } else { fallback() }
+        }
+        .task(id: item.uuid) {
+            guard Visuals.shared.cachedRichText(for: item, limit: limit) == nil else { return }
+            attr = await Visuals.shared.loadRichText(for: item, store: store, limit: limit)
+        }
     }
 }

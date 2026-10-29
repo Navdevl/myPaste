@@ -361,8 +361,10 @@ struct QuickLookView: View {
     @ViewBuilder private var content: some View {
         switch item.kind {
         case .image:
-            if let img = Visuals.shared.fullImage(for: item, store: model.store) {
+            AsyncThumbnail(item: item, store: model.store, maxSide: 2000) { img in
                 Image(nsImage: img).resizable().aspectRatio(contentMode: .fit).padding(16)
+            } placeholder: {
+                ProgressView()
             }
         case .color:
             RoundedRectangle(cornerRadius: 12).fill(Color(hex: item.text ?? "")).padding(24)
@@ -386,8 +388,8 @@ struct QuickLookView: View {
             } else {
             ScrollView {
                 Group {
-                    if item.kind == .richText, let attr = Visuals.shared.richText(for: item, store: model.store, limit: 50_000) {
-                        Text(attr)
+                    if item.kind == .richText {
+                        AsyncRichText(item: item, store: model.store, limit: 50_000) { Text(item.text ?? "") }
                     } else {
                         Text(item.text ?? "").font(item.kind == .code ? .system(size: 12.5, design: .monospaced) : .system(size: 13.5))
                     }

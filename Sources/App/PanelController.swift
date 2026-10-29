@@ -76,14 +76,16 @@ final class PanelController: NSObject, NSWindowDelegate {
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
         let target = NSRect(x: screen.frame.minX, y: screen.frame.minY, width: screen.frame.width, height: Self.height)
         model.prepareForShow()
-        panel.setFrame(target.offsetBy(dx: 0, dy: -Self.height), display: false)
+        // Frame is set once; the slide is a layer transform. Animating the window frame re-ran
+        // SwiftUI layout every frame (~130 ms of main-thread time per open with 2,000 items).
+        if panel.frame != target { panel.setFrame(target, display: false) }
         panel.alphaValue = 0
         panel.makeKeyAndOrderFront(nil)
         isVisible = true
+        slide(from: -Self.height * 0.35, to: 0, duration: 0.2)
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
+            ctx.duration = 0.16
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            panel.animator().setFrame(target, display: true)
             panel.animator().alphaValue = 1
         }
         installKeyMonitor()
@@ -95,12 +97,30 @@ final class PanelController: NSObject, NSWindowDelegate {
         model.quickLookID = nil
         model.editor = nil
         removeKeyMonitor()
-        let frame = panel.frame
+        slide(from: 0, to: -Self.height * 0.35, duration: 0.12)
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.12
-            panel.animator().setFrame(frame.offsetBy(dx: 0, dy: -Self.height), display: true)
             panel.animator().alphaValue = 0
-        }, completionHandler: { [panel] in panel.orderOut(nil) })
+        }, completionHandler: { [weak self] in
+            guard let self, !self.isVisible else { return }
+            self.panel.orderOut(nil)
+        })
+    }
+
+    /// Vertical slide on the content layer: GPU-only, no AppKit/SwiftUI layout during the animation.
+    private func slide(from: CGFloat, to: CGFloat, duration: CFTimeInterval) {
+        guard let view = panel.contentView else { return }
+        view.wantsLayer = true
+        guard let layer = view.layer else { return }
+        let anim = CABasicAnimation(keyPath: "transform.translation.y")
+        anim.fromValue = from
+        anim.toValue = to
+        anim.duration = duration
+        anim.timingFunction = CAMediaTimingFunction(name: to == 0 ? .easeOut : .easeIn)
+        anim.fillMode = .forwards
+        anim.isRemovedOnCompletion = to != 0
+        layer.add(anim, forKey: "slide")
+        layer.transform = CATransform3DMakeTranslation(0, to, 0)
     }
 
     /// Hides immediately (no animation) so focus is back on the target app before ⌘V is posted.
@@ -110,6 +130,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         model.editor = nil
         removeKeyMonitor()
         panel.orderOut(nil)
+        panel.contentView?.layer?.removeAnimation(forKey: "slide")
+        panel.contentView?.layer?.transform = CATransform3DIdentity
     }
 
     func windowDidResignKey(_ notification: Notification) {

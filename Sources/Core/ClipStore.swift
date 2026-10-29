@@ -107,8 +107,15 @@ public final class ClipStore {
         }
     }
 
+    /// Single-row fetch; called per capture, so it must not load the whole history.
     public func item(id: Int64) throws -> ClipItem? {
-        try allItems().first { $0.id == id }
+        try dbQueue.read { db in
+            guard let row = try Row.fetchOne(db, sql: "SELECT * FROM item WHERE id = ?", arguments: [id]) else { return nil }
+            var item = Self.item(from: row)
+            item.pinboardIDs = try Int64.fetchAll(db, sql: "SELECT pinboardID FROM pin WHERE itemID = ? ORDER BY addedAt", arguments: [id])
+            item.tags = try String.fetchAll(db, sql: "SELECT name FROM tag WHERE itemID = ? ORDER BY name", arguments: [id])
+            return item
+        }
     }
 
     public func pinboards() throws -> [Pinboard] {

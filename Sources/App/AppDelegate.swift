@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Perf.startHangDetector()
         do {
             store = try ClipStore(directory: Self.dataDirectory)
         } catch {
@@ -74,6 +75,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             _ = try? self.store.prune(self.prefs.retention)
         }
         enrichment.backfill()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self else { return }
+            Visuals.shared.prewarm(self.model.items, store: self.store)
+        }
 
         // Scripting hook: `notifyutil`-style toggle from other tools, e.g. a Raycast script.
         DistributedNotificationCenter.default().addObserver(forName: .init("local.mypaste.toggle"), object: nil, queue: .main) { [weak self] _ in

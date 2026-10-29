@@ -157,10 +157,10 @@ struct CardView: View {
     @ViewBuilder private var preview: some View {
         switch item.kind {
         case .image:
-            if let img = Visuals.shared.thumbnail(for: item, store: model.store) {
+            AsyncThumbnail(item: item, store: model.store) { img in
                 Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
                     .frame(maxWidth: .infinity, maxHeight: .infinity).padding(8)
-            } else {
+            } placeholder: {
                 placeholder("photo")
             }
         case .file:
@@ -189,16 +189,20 @@ struct CardView: View {
             .padding(12)
         case .link:
             VStack(alignment: .leading, spacing: 6) {
-                if item.hasLinkImage, let img = Visuals.shared.thumbnail(for: item, store: model.store, ext: "link.png") {
-                    Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
-                        .frame(maxWidth: .infinity).frame(height: 96).clipped()
+                if item.hasLinkImage {
+                    AsyncThumbnail(item: item, store: model.store, ext: "link.png") { img in
+                        Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Color.primary.opacity(0.06)
+                    }
+                    .frame(maxWidth: .infinity).frame(height: 96).clipped()
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     if !item.hasLinkImage {
                         HStack(spacing: 8) {
-                            if item.hasLinkIcon, let icon = Visuals.shared.thumbnail(for: item, store: model.store, ext: "icon.png", maxSide: 64) {
+                            AsyncThumbnail(item: item, store: model.store, ext: item.hasLinkIcon ? "icon.png" : "none", maxSide: 64) { icon in
                                 Image(nsImage: icon).resizable().frame(width: 28, height: 28).clipShape(RoundedRectangle(cornerRadius: 6))
-                            } else {
+                            } placeholder: {
                                 Image(systemName: "globe").font(.system(size: 22)).foregroundStyle(.secondary).frame(width: 28, height: 28)
                             }
                             Text(URL(string: item.text ?? "")?.host ?? "").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).lineLimit(1)
@@ -214,11 +218,8 @@ struct CardView: View {
             Text(String((item.text ?? "").prefix(900)))
                 .font(.system(size: 11, design: .monospaced)).padding(12)
         case .richText:
-            if let attr = Visuals.shared.richText(for: item, store: model.store) {
-                Text(attr).font(.system(size: 12)).padding(12)
-            } else {
-                plainText
-            }
+            AsyncRichText(item: item, store: model.store) { Text(String((item.text ?? "").prefix(900))) }
+                .font(.system(size: 12)).padding(12)
         case .email, .phone:
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: item.kind.symbol).foregroundStyle(.secondary)

@@ -102,7 +102,7 @@ final class AppModel: ObservableObject {
     }
 
     func reload() {
-        items = (try? store.allItems()) ?? []
+        items = Perf.measure("reload") { (try? store.allItems()) ?? [] }
         pinboards = (try? store.pinboards()) ?? []
         if case .board(let id) = tab, !pinboards.contains(where: { $0.id == id }) { tab = .history }
         recompute(resetSelection: false)
@@ -111,6 +111,10 @@ final class AppModel: ObservableObject {
     var query: SearchQuery { SearchQuery.parse(search) }
 
     func recompute(resetSelection: Bool) {
+        Perf.measure("recompute") { recomputeNow(resetSelection: resetSelection) }
+    }
+
+    private func recomputeNow(resetSelection: Bool) {
         let pending = Set(pendingDeletes)
         var list = items.filter { !pending.contains($0.id) }
         if case .board(let id) = tab { list = list.filter { $0.pinboardIDs.contains(id) } }
