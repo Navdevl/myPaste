@@ -18,6 +18,7 @@ struct StripView: View {
                 switch editor {
                 case .pinPicker(let id): PinPickerView(itemID: id)
                 case .info(let id): InfoView(itemID: id)
+                case .actions(let id): ActionsView(itemID: id)
                 default: EditorView()
                 }
             }
@@ -288,7 +289,7 @@ struct EditorView: View {
         case .editText: return "Edit Text"
         case .newBoard: return "New Pinboard"
         case .editBoard: return "Edit Pinboard"
-        case .pinPicker, .info, nil: return ""
+        case .pinPicker, .info, .actions, nil: return ""
         }
     }
 
@@ -309,7 +310,7 @@ struct EditorView: View {
             if let b = model.pinboards.first(where: { $0.id == id }) { text = b.name; color = b.colorHex }
         case .newBoard:
             color = Format.boardColors[model.pinboards.count % Format.boardColors.count]
-        case .pinPicker, .info, nil: break
+        case .pinPicker, .info, .actions, nil: break
         }
         DispatchQueue.main.async { focused = true }
     }
@@ -324,7 +325,7 @@ struct EditorView: View {
         case .newBoard(let pinItem): model.createBoard(name: text, color: color, pin: pinItem)
         case .editBoard(let id):
             if !text.trimmingCharacters(in: .whitespaces).isEmpty { try? store.updatePinboard(id, name: text, colorHex: color) }
-        case .pinPicker, .info, nil: break
+        case .pinPicker, .info, .actions, nil: break
         }
         model.editor = nil
     }
@@ -407,7 +408,7 @@ struct QuickLookView: View {
 
 private struct ShortcutBar: View {
     private let hints: [(String, String)] = [
-        ("⌘1–9", "Paste"), ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo"), ("⌘P", "Pin"), ("⌘⇧P", "Pin to…"),
+        ("⌘1–9", "Paste"), ("⌘K", "Actions"), ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo"), ("⌘P", "Pin"), ("⌘⇧P", "Pin to…"),
         ("⌘O", "Open"), ("⌥⌘C", "Copy plain"), ("⌘I", "Info"), ("⌘R", "Rename"), ("⌘T", "Tags"),
         ("⌘E", "Edit"), ("⌘↑↓", "First/last"), ("⌥0–9", "Boards"),
     ]
@@ -511,5 +512,100 @@ private struct InfoView: View {
             Text(value).lineLimit(2).textSelection(.enabled)
         }
         .font(.system(size: 12))
+    }
+}
+
+// MARK: Actions (⌘K)
+
+private struct ActionsView: View {
+    let itemID: Int64
+    @EnvironmentObject var model: AppModel
+    @State private var filter = ""
+    @State private var highlighted = 0
+    @State private var options: [(Transform, String)] = []
+    @FocusState private var focused: Bool
+
+    private var shown: [(Transform, String)] {
+        let q = filter.lowercased().trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return options }
+        return options.filter { ($0.0.title + " " + $0.0.keywords + " " + $0.0.group.rawValue).lowercased().contains(q) }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: "wand.and.stars").foregroundStyle(.tint)
+                    TextField("Filter actions", text: $filter)
+                        .textFieldStyle(.plain).font(.system(size: 13)).focused($focused)
+                        .onChange(of: filter) { _, _ in highlighted = 0 }
+                        .onKeyPress(.upArrow) { move(-1); return .handled }
+                        .onKeyPress(.downArrow) { move(1); return .handled }
+                        .onKeyPress(.return, phases: .down) { press in
+                            run(save: press.modifiers.contains(.command)); return .handled
+                        }
+                }
+                .padding(8)
+                .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 7))
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 1) {
+                            ForEach(Array(shown.enumerated()), id: \.element.0.id) { i, pair in
+                                if i == 0 || shown[i - 1].0.group != pair.0.group {
+                                    Text(pair.0.group.rawValue.uppercased())
+                                        .font(.system(size: 9.5, weight: .bold)).foregroundStyle(.secondary)
+                                        .padding(.top, i == 0 ? 2 : 8).padding(.leading, 6)
+                                }
+                                Text(pair.0.title)
+                                    .font(.system(size: 12.5))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 8).padding(.vertical, 4)
+                                    .background(i == highlighted ? Color.accentColor.opacity(0.85) : .clear, in: RoundedRectangle(cornerRadius: 5))
+                                    .foregroundStyle(i == highlighted ? .white : .primary)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { highlighted = i }
+                                    .onTapGesture(count: 2) { highlighted = i; run(save: false) }
+                                    .id(pair.0.id)
+                            }
+                        }
+                    }
+                    .onChange(of: highlighted) { _, i in if i < shown.count { proxy.scrollTo(shown[i].0.id) } }
+                }
+            }
+            .frame(width: 250)
+            Divider().padding(.horizontal, 12)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Result").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                ScrollView {
+                    Text(highlighted < shown.count ? String(shown[highlighted].1.prefix(4000)) : "No actions fit this item")
+                        .font(.system(size: 12, design: .monospaced))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+                Spacer(minLength: 0)
+                Text("↩ paste result · ⌘↩ save as new card · Esc").font(.caption).foregroundStyle(.tertiary)
+            }
+            .frame(width: 330)
+        }
+        .frame(height: 250)
+        .padding(14)
+        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+        .shadow(radius: 20)
+        .onAppear {
+            options = Transform.available(for: model.item(itemID)?.text ?? "")
+            DispatchQueue.main.async { focused = true }
+        }
+    }
+
+    private func move(_ d: Int) {
+        guard !shown.isEmpty else { return }
+        highlighted = max(0, min(shown.count - 1, highlighted + d))
+    }
+
+    private func run(save: Bool) {
+        guard highlighted < shown.count else { NSSound.beep(); return }
+        let result = shown[highlighted].1
+        model.editor = nil
+        if save { model.saveAsNewItem(result) } else { model.onPasteText?(result) }
     }
 }

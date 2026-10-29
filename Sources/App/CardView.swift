@@ -132,6 +132,10 @@ struct CardView: View {
                 HStack(spacing: 5) {
                     Text(item.displayTitle ?? (item.maskedPreview != nil ? item.sensitiveLabel : nil) ?? item.kind.label).font(.system(size: 13, weight: .semibold)).lineLimit(1)
                     if item.isPinned { Image(systemName: "pin.fill").font(.system(size: 10)) }
+                    if item.isSnippet {
+                        Text("Snippet").font(.system(size: 9, weight: .bold)).padding(.horizontal, 4).padding(.vertical, 1)
+                            .background(.white.opacity(0.25), in: Capsule())
+                    }
                     if item.isSensitive { Image(systemName: "lock.fill").font(.system(size: 10)) }
                 }
                 Text(Format.ago(item.lastUsedAt, now: model.now) + (item.displayTitle != nil ? " · \(item.kind.label)" : ""))
@@ -304,6 +308,7 @@ struct CardMenu: View {
         if item.kind != .image && item.kind != .file { Button("Edit Text…") { model.editor = .editText(item.id) } }
         Button("Quick Look") { model.selectedID = item.id; model.quickLookID = item.id }
         Button("Info") { model.editor = .info(item.id) }
+        if item.text != nil, item.kind != .image, item.kind != .file { Button("Actions… (⌘K)") { model.editor = .actions(item.id) } }
         Divider()
         Button("Delete", role: .destructive) { model.delete(item) }
     }

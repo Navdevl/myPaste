@@ -1,6 +1,7 @@
 import AppKit
 import MyPasteCore
 import Combine
+import CryptoKit
 import SwiftUI
 
 enum Tab: Hashable {
@@ -16,6 +17,7 @@ enum Editor: Equatable {
     case editBoard(Int64)
     case pinPicker(Int64)
     case info(Int64)
+    case actions(Int64)
 }
 
 /// UI state for the strip: all items in memory (≤ a few thousand), filtered on the main thread.
@@ -56,6 +58,23 @@ final class AppModel: ObservableObject {
     var onAddToStack: ((ClipItem) -> Void)?
     var onOpenSettings: (() -> Void)?
     var onOpen: ((ClipItem) -> Void)?
+    /// Paste arbitrary text (⌘K results).
+    var onPasteText: ((String) -> Void)?
+
+    /// ⌘⌘K "save as new card": goes through the normal capture path so it's classified and searchable.
+    func saveAsNewItem(_ text: String) {
+        let kind = Classifier.kind(for: CaptureFacts(string: text))
+        let reason = SensitiveDetector.reason(for: text)
+        let capture = NewCapture(kind: reason?.isIdentifier == true ? .text : kind, text: text,
+                                 sourceBundleID: Bundle.main.bundleIdentifier, sourceAppName: "myPaste",
+                                 contentHash: kind.rawValue + ":" + SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined(),
+                                 sensitiveReason: reason?.rawValue)
+        if let id = try? store.insert(capture, sensitiveTTL: prefs.sensitiveTTL) {
+            reload()
+            selectedID = id
+            showToast("Saved as new card")
+        }
+    }
 
     /// Deleted from the UI but not yet from disk, newest last, so ⌘Z can bring them back.
     private var pendingDeletes: [Int64] = []

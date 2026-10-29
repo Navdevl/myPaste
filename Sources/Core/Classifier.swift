@@ -100,6 +100,9 @@ public enum Classifier {
 
     /// Scores structural signals; one-line prose with a semicolon shouldn't qualify.
     public static func isCode(_ s: String) -> Bool {
+        // JSON objects/arrays are code even on one line.
+        if let f = s.first, f == "{" || f == "[", s.count > 2,
+           (try? JSONSerialization.jsonObject(with: Data(s.utf8))) != nil { return true }
         var score = 0
         let lines = s.split(separator: "\n", omittingEmptySubsequences: false)
         if lines.count > 1 { score += 1 }

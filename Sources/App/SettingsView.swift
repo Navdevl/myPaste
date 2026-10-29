@@ -43,7 +43,7 @@ private struct GeneralSettings: View {
             Section("Shortcuts") {
                 LabeledContent("Open myPaste") { ShortcutRecorder(name: .openPanel) }
                 LabeledContent("Paste Stack") { ShortcutRecorder(name: .pasteStack) }
-                Text("In the panel: ←/→ select · ↑/↓ tabs · ↩ paste · ⇧↩ plain · ⌘1–9 quick paste · Space Quick Look · ⌘⇧⌫ delete · ⌘Z undo · ⌘P pin · ⌘⇧P pin to… · ⌘O open · ⌥⌘C copy plain · ⌘I info · ⌘R rename · ⌘T tags · ⌘E edit · ⌘↑/↓ first/last · Tab type filter · ⌥0–9 boards. Hold ⌘ for hints. Search: /img /link /code … @app #tag.")
+                Text("In the panel: ←/→ select · ↑/↓ tabs · ↩ paste · ⇧↩ plain · ⌘1–9 quick paste · Space Quick Look · ⌘K actions · ⌘⇧⌫ delete · ⌘Z undo · ⌘P pin · ⌘⇧P pin to… · ⌘O open · ⌥⌘C copy plain · ⌘I info · ⌘R rename · ⌘T tags · ⌘E edit · ⌘↑/↓ first/last · Tab type filter · ⌥0–9 boards. Hold ⌘ for hints. Search: /img /link /code … @app #tag.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Permissions") {

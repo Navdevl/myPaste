@@ -179,6 +179,9 @@ extension ClipItem {
         return SensitiveDetector.masked(text, reason: reason)
     }
 
+    /// Pinned text with {date}/{clipboard}/{cursor}… placeholders, expanded at paste time.
+    var isSnippet: Bool { isPinned && text.map(Snippet.hasPlaceholders) == true }
+
     /// Whether plain-text paste differs from a normal paste.
     var hasFormatting: Bool { hasRTF || hasHTML || kind == .link }
 

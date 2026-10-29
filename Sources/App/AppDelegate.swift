@@ -58,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.onPaste = { [weak self] item, plain in self?.paste(item, plain: plain) }
         model.onCopy = { [weak self] item, plain in self?.copy(item, plain: plain) }
         model.onOpen = { [weak self] item in self?.open(item) }
+        model.onPasteText = { [weak self] text in self?.pasteText(text, caretBack: nil) }
         model.onAddToStack = { [weak self] item in self?.panel.hide(); self?.stack.append(item) }
         model.onOpenSettings = { [weak self] in self?.openSettings() }
 
@@ -104,6 +105,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func paste(_ item: ClipItem, plain: Bool) {
+        // Pinned snippets: fill placeholders, then paste as plain text and park the caret at {cursor}.
+        if item.isSnippet, let text = item.text {
+            let expanded = Snippet.expand(text, clipboard: NSPasteboard.general.string(forType: .string))
+            try? store.touch(item.id)
+            pasteText(expanded.text, caretBack: expanded.charsAfterCursor)
+            return
+        }
         Paster.write(item, store: store, plainText: plain)
         monitor.skipCurrent()
         try? store.touch(item.id)
@@ -115,6 +123,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // Give the window server a beat to return key focus to the previous app.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { Paster.postCommandV() }
+    }
+
+    private func pasteText(_ text: String, caretBack: Int?) {
+        Paster.writeText(text)
+        monitor.skipCurrent()
+        panel.hideNow()
+        guard prefs.directPaste else { return }
+        guard Paster.isTrusted else { Paster.requestTrust(); return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            Paster.postCommandV()
+            if let n = caretBack, n > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { Paster.moveCaretLeft(n) }
+            }
+        }
     }
 
     private func copy(_ item: ClipItem, plain: Bool) {

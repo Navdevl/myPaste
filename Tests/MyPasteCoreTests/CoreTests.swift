@@ -36,6 +36,8 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
         #expect(kind("func add(a: Int) -> Int {\n    return a + 1\n}") == .code)
         #expect(kind("SELECT id, name FROM users WHERE id = 1;") == .code)
         #expect(kind("def f(x):\n    return x * 2") == .code)
+        #expect(kind("{\"a\":1,\"b\":[2]}") == .code)
+        #expect(kind("[1, 2]") == .code)
         #expect(kind("Meeting notes:\nWe agreed to ship on Friday.\nAction items to follow.") == .text)
     }
 
@@ -275,5 +277,76 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
         #expect(D.masked("HDFC0001234", reason: .ifsc) == "HDFC0••••••")
         #expect(D.masked("someone@okhdfcbank", reason: .upi) == "s•••@okhdfcbank")
         #expect(D.masked("482913", reason: .otp) == nil)
+    }
+}
+
+@Suite struct TransformTests {
+    private func run(_ id: String, _ input: String) -> String? {
+        Transform.all.first { $0.id == id }!.apply(input)
+    }
+
+    @Test func json() {
+        #expect(run("json.minify", "{ \"a\" : [1, 2] }") == "{\"a\":[1,2]}")
+        #expect(run("json.pretty", "{\"a\":1}")?.contains("\n") == true)
+        #expect(run("json.yaml", "{\"name\":\"example\",\"tags\":[\"a\",\"b\"],\"n\":{\"x\":true}}") == "n:\n  x: true\nname: example\ntags:\n  - a\n  - b")
+        #expect(run("json.pretty", "not json") == nil)
+        #expect(run("str.escape", "say \"hi\"\n") == "say \\\"hi\\\"\\n")
+        #expect(run("str.unescape", "\"line\\nnext\"") == "line\nnext")
+    }
+
+    @Test func sql() {
+        #expect(Transform.formatSQL("select id, name from users u left join orders o on o.uid = u.id where name = 'from x' limit 100")
+                == "SELECT id, name\nFROM users u\nLEFT JOIN orders o ON o.uid = u.id\nWHERE name = 'from x'\nLIMIT 100")
+    }
+
+    @Test func textCleanup() {
+        #expect(run("text.join", "a\n  b\n\nc") == "a b c")
+        #expect(run("text.unique", "b\na\nb") == "b\na")
+        #expect(run("text.sort", "b\na\nc") == "a\nb\nc")
+        #expect(run("case.camel", "hello big world") == "helloBigWorld")
+        #expect(run("case.snake", "Hello Big World") == "hello_big_world")
+        #expect(run("text.collapse", "a   b\t c") == "a b c")
+    }
+
+    @Test func urlsAndEncoding() {
+        #expect(Transform.stripTracking("https://example.com/p?id=7&utm_source=x&fbclid=abc") == "https://example.com/p?id=7")
+        #expect(Transform.stripTracking("https://example.com/p?id=7") == nil)
+        #expect(run("b64.decode", run("b64.encode", "héllo")!) == "héllo")
+        #expect(run("b64.decode", "hello world") == nil)
+        #expect(run("url.decode", "a%20b+c") == "a b c")
+        #expect(run("extract.urls", "see https://a.com and https://b.com/x, ok") == "https://a.com\nhttps://b.com/x")
+        #expect(run("extract.emails", "mail a@x.com or b@y.org") == "a@x.com\nb@y.org")
+    }
+
+    @Test func infoAndTime() {
+        #expect(run("info.count", "one two\nthree") == "3 words · 2 lines · 13 characters")
+        #expect(run("hash.md5", "abc") == "900150983cd24fb0d6963f7d28e17f72")
+        #expect(Transform.epochOrDate("1800000000") == "2027-01-15 13:30:00 IST")
+        #expect(Transform.epochOrDate("2027-01-15 13:30:00") == "1800000000")
+        #expect(Transform.epochOrDate("hello") == nil)
+    }
+
+    @Test func availableFiltersInapplicable() {
+        let ids = Transform.available(for: "plain words here").map(\.0.id)
+        #expect(!ids.contains("json.pretty"))
+        #expect(ids.contains("case.upper"))
+    }
+}
+
+@Suite struct SnippetTests {
+    let now = Date(timeIntervalSince1970: 1_800_000_000) // 2027-01-15 13:30 IST
+
+    @Test func expandsPlaceholders() {
+        let r = Snippet.expand("Hi on {date} at {time}: {clipboard}", clipboard: "PR #42", now: now)
+        #expect(r.text == "Hi on 2027-01-15 at 13:30: PR #42")
+        #expect(r.charsAfterCursor == nil)
+        #expect(Snippet.expand("{datetime}", clipboard: nil, now: now).text == "2027-01-15T13:30:00+05:30")
+    }
+
+    @Test func cursor() {
+        let r = Snippet.expand("SELECT * FROM {cursor} LIMIT 100;", clipboard: nil, now: now)
+        #expect(r.text == "SELECT * FROM  LIMIT 100;")
+        #expect(r.charsAfterCursor == 11)
+        #expect(Snippet.hasPlaceholders("x {uuid}") && !Snippet.hasPlaceholders("x {other}"))
     }
 }

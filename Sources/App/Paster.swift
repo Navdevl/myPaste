@@ -40,6 +40,22 @@ enum Paster {
         pb.setData(Data(), forType: PasteboardMonitor.internalType)
     }
 
+    static func writeText(_ text: String) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+        pb.setData(Data(), forType: PasteboardMonitor.internalType)
+    }
+
+    /// Moves the caret left `count` characters (snippet {cursor}). Capped so a huge snippet can't flood events.
+    static func moveCaretLeft(_ count: Int) {
+        let src = CGEventSource(stateID: .combinedSessionState)
+        for _ in 0..<min(count, 2000) {
+            CGEvent(keyboardEventSource: src, virtualKey: 0x7B, keyDown: true)?.post(tap: .cgAnnotatedSessionEventTap)
+            CGEvent(keyboardEventSource: src, virtualKey: 0x7B, keyDown: false)?.post(tap: .cgAnnotatedSessionEventTap)
+        }
+    }
+
     /// Synthesises ⌘V. Explicit flags so a still-held Shift (from ⇧↩) doesn't turn it into ⇧⌘V.
     static func postCommandV() {
         let src = CGEventSource(stateID: .combinedSessionState)
