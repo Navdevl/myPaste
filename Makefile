@@ -21,7 +21,7 @@ CLT_FW   := /Library/Developer/CommandLineTools/Library/Developer/Frameworks
 TESTFLAGS := -Xswiftc -F -Xswiftc $(CLT_FW) -Xlinker -rpath -Xlinker $(CLT_FW) \
              -Xlinker -rpath -Xlinker /Library/Developer/CommandLineTools/Library/Developer/usr/lib
 
-.PHONY: all app test install run cert clean overlay version
+.PHONY: all app test uitest install run cert clean overlay version
 
 version:
 	@echo $(VERSION) \($(BUILD_NUMBER)\)
@@ -61,6 +61,22 @@ app: overlay
 		echo "warning: '$(IDENTITY)' cert missing (run make cert); ad-hoc signing"; \
 		codesign --force --deep --sign - $(BUNDLE); \
 	fi
+
+FAKE     := $(BUILD)/uitest/FakeMaccy.app
+LSREG    := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+
+# Accessibility-driven UI tests against the freshly built bundle. Quits the installed copy for the
+# duration (both would fight over hotkeys and the clipboard) and relaunches it afterwards.
+uitest: app
+	swift build -c release --product myPasteUITests $(SPMFLAGS)
+	mkdir -p $(FAKE)/Contents/MacOS
+	cp Tests/UITests/FakeMaccy/Info.plist $(FAKE)/Contents/Info.plist
+	swiftc $(if $(STALE),-vfsoverlay $(OVERLAY)) Tests/UITests/FakeMaccy/main.swift -o $(FAKE)/Contents/MacOS/FakeMaccy
+	codesign --force --sign - $(FAKE)
+	-pkill -x $(APP); sleep 0.5
+	./$(RELEASE)/myPasteUITests $(BUNDLE) $(FAKE); status=$$?; \
+		$(LSREG) -u $(FAKE) 2>/dev/null; rm -rf $(FAKE); \
+		[ -d $(INSTALL) ] && open $(INSTALL); exit $$status
 
 install: app
 	-osascript -e 'tell application id "local.mypaste.app" to quit' 2>/dev/null

@@ -2,13 +2,15 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
-## 1.1.0 (unreleased)
+## 1.1.0 (2026-10-29)
 
 - Smart actions: JWT decode, Jira keys → open in Jira, UUIDs, Unix timestamps (IST), GitHub PR/issue refs.
 - Quick Look: syntax-highlighted code; zoom and pan for images.
 - Orphaned preview images are swept at launch.
 - Accessibility-driven UI test suite (`make uitest`).
-- Version and build shown in Settings → About.
+- Version and build shown in Settings → About; launch log records version and Accessibility status.
+- Lowercase SQL is classified as code; Quick Look and overlays use an opaque surface on macOS 26.
+- Build applies the Command Line Tools overlay only while the stale files exist.
 
 ## 1.0.0 (2026-10-29)
 

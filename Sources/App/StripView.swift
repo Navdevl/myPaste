@@ -11,6 +11,10 @@ struct StripView: View {
                 topBar
                 cards
             }
+            // On an inner view: an identifier on the root propagates to every unlabelled descendant,
+            // which hid the shortcut bar's and toast's own identifiers from UI tests.
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("strip")
             .padding(.top, 12)
             .padding(.bottom, 6)
             if let editor = model.editor {
@@ -26,6 +30,8 @@ struct StripView: View {
         .overlay(alignment: .bottom) {
             if model.editMode && model.editor == nil {
                 ShortcutBar().padding(.bottom, 8).transition(.move(edge: .bottom).combined(with: .opacity))
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("shortcut.bar")
             } else if model.plainMode && model.editor == nil {
                 HStack(spacing: 8) {
                     Image(systemName: "textformat.size.smaller").foregroundStyle(.orange)
@@ -46,6 +52,8 @@ struct StripView: View {
                     .glassSurface(cornerRadius: 14)
                     .padding(.top, 10)
                     .transition(.move(edge: .top).combined(with: .opacity))
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("toast")
             }
         }
         .onChange(of: model.focusToken) { _, _ in searchFocused = true }
@@ -385,7 +393,8 @@ struct QuickLookView: View {
                 VStack(spacing: 12) {
                     Label(item.sensitiveLabel ?? "Sensitive", systemImage: "lock.shield.fill").foregroundStyle(.orange)
                     Text(item.maskedPreview ?? "").font(.system(size: 28, weight: .semibold, design: .monospaced))
-                    Button("Reveal") { revealed = true }
+                        .accessibilityIdentifier("ql.masked")
+                    Button("Reveal") { revealed = true }.accessibilityIdentifier("ql.reveal")
                     Text("Paste always uses the full value.").font(.caption).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -398,7 +407,7 @@ struct QuickLookView: View {
                         if item.kind == .code {
                             Text(CodeStyle.highlighted(item.text ?? ""))
                         } else {
-                            Text(item.text ?? "").font(.system(size: 13.5))
+                            Text(item.text ?? "").font(.system(size: 13.5)).accessibilityIdentifier("ql.text")
                         }
                     }
                 }

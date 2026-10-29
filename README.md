@@ -8,10 +8,12 @@ A personal, local-only clipboard manager for macOS modelled on Paste. No sync, n
 make cert      # once: self-signed "myPaste Dev" identity, keeps the Accessibility grant across rebuilds
 make test      # Swift Testing suite for Core (classifier, sensitive detection, GRDB store, search, retention)
 make install   # swift build -c release, bundle, sign, copy to ~/Applications/myPaste.app and launch
+make uitest    # UI tests: drives the real app via the Accessibility API (~35 s; don't type meanwhile)
+make version   # prints VERSION and the build number
 ```
 
 SwiftPM package: GRDB for storage, KeyboardShortcuts for global hotkeys, Liquid Glass on macOS 26.
-Always build through the Makefile, not bare `swift build`. The local Command Line Tools still carry two
+Build through the Makefile, not bare `swift build`, until the stale files below are deleted. The local Command Line Tools still carry two
 stale files from an older install (`usr/include/swift/module.modulemap` and PackageDescription's
 `.private.swiftinterface`). `build-support/clt-overlay.yaml.in` hides them per build without sudo.
 Deleting those two files with sudo fixes this for good.
@@ -74,3 +76,16 @@ a throwaway database. Post the distributed notification `local.mypaste.toggle` t
 - `Sources/Core` (MyPasteCore): no AppKit. Classifier, sensitive detection, `ClipStore` on GRDB (migrations, FTS5 trigram search, retention).
 - `Sources/App`: AppKit/SwiftUI. Pasteboard polling, hotkeys, panel, cards, Paste Stack, OCR/link enrichment, settings.
 - `Tests/MyPasteCoreTests`: Swift Testing suites for Core.
+
+## Releases
+
+`VERSION` holds the semver version; the build number is the git commit count. For a release: update
+`CHANGELOG.md`, bump `VERSION`, commit, `git tag vX.Y.Z`, `make install`.
+
+## UI tests
+
+`Tests/UITests` is an AppKit harness (not XCUITest: no Xcode here). It launches `build/myPaste.app` with
+`MYPASTE_UITEST=1` and a throwaway data folder, types with CGEvents, and finds/presses controls by
+accessibility identifier. Test-only seams (file panels, URL opening, Settings pane routing) live in
+`Sources/App/UITestHooks.swift`. The terminal running it needs Accessibility permission. The conflict test
+launches a fake app with Maccy's bundle id and is skipped if the real Maccy is running.

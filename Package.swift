@@ -27,6 +27,13 @@ let package = Package(
             path: "Sources/App",
             swiftSettings: swift5
         ),
+        .executableTarget(
+            name: "myPasteUITests",
+            dependencies: ["MyPasteCore"],
+            path: "Tests/UITests",
+            exclude: ["FakeMaccy"],
+            swiftSettings: swift5
+        ),
         .testTarget(
             name: "MyPasteCoreTests",
             dependencies: ["MyPasteCore"],

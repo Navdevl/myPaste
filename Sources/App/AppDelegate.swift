@@ -62,7 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.onCopy = { [weak self] item, plain in self?.copy(item, plain: plain) }
         model.onOpen = { [weak self] item in self?.open(item) }
         model.onPasteText = { [weak self] text in self?.pasteText(text, caretBack: nil) }
-        model.onOpenURL = { [weak self] url in self?.panel.hide(); NSWorkspace.shared.open(url) }
+        model.onOpenURL = { [weak self] url in self?.panel.hide(); self?.openExternally(url) }
         model.onAddToStack = { [weak self] item in self?.panel.hide(); self?.stack.append(item) }
         model.onOpenSettings = { [weak self] in self?.openSettings() }
 
@@ -100,8 +100,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.panel.toggle()
         }
 
-        // First run: guided onboarding (permission, shortcuts). Later runs: just warn about shortcut clashes.
-        if !UserDefaults.standard.bool(forKey: "didOnboard") {
+        if UITest.enabled {
+            DistributedNotificationCenter.default().addObserver(forName: .init("local.mypaste.uitest.settings"), object: nil, queue: .main) { [weak self] n in
+                if let raw = n.object as? String, let pane = SettingsView.Pane(rawValue: raw) { SettingsRouter.shared.pane = pane }
+                self?.openSettings()
+            }
+        } else if !UserDefaults.standard.bool(forKey: "didOnboard") {
+            // First run: guided onboarding (permission, shortcuts). Later runs: just warn about shortcut clashes.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.showWelcome() }
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
@@ -148,6 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         panel.hideNow()
         guard prefs.directPaste else { return }
         guard Paster.isTrusted else {
+            AppLog.info("Direct paste skipped: Accessibility not granted")
             Paster.requestTrust()
             return
         }
@@ -160,7 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         monitor.skipCurrent()
         panel.hideNow()
         guard prefs.directPaste else { return }
-        guard Paster.isTrusted else { Paster.requestTrust(); return }
+        guard Paster.isTrusted else { AppLog.info("Direct paste skipped: Accessibility not granted"); Paster.requestTrust(); return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
             Paster.postCommandV()
             if let n = caretBack, n > 0 {
@@ -182,12 +188,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .link:
             guard let url = URL(string: (item.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)) else { return NSSound.beep() }
             panel.hide()
-            NSWorkspace.shared.open(url)
+            openExternally(url)
         case .file:
             panel.hide()
             NSWorkspace.shared.activateFileViewerSelecting(item.filePaths.map { URL(fileURLWithPath: $0) })
         case .email:
-            if let url = URL(string: "mailto:" + (item.text ?? "")) { panel.hide(); NSWorkspace.shared.open(url) }
+            if let url = URL(string: "mailto:" + (item.text ?? "")) { panel.hide(); openExternally(url) }
         default:
             NSSound.beep()
         }
@@ -214,6 +220,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         welcomeWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    private func openExternally(_ url: URL) {
+        if UITest.enabled { UITest.reportOpened(url) } else { NSWorkspace.shared.open(url) }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

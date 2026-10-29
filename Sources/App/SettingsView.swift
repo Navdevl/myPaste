@@ -10,7 +10,8 @@ struct SettingsView: View {
     @ObservedObject var prefs: Preferences
     @ObservedObject var model: AppModel
     var onShowWelcome: () -> Void = {}
-    @State private var pane: Pane = .general
+    @ObservedObject private var router = SettingsRouter.shared
+    private var pane: Pane { router.pane }
 
     enum Pane: String, CaseIterable, Identifiable {
         case general, shortcuts, history, privacy, pinboards, backup, about
@@ -57,10 +58,11 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(Pane.allCases, selection: $pane) { p in
+            List(Pane.allCases, selection: $router.pane) { p in
                 Label { Text(p.title) } icon: { Tile(symbol: p.symbol, tint: p.tint, size: 22) }
                     .tag(p)
                     .padding(.vertical, 2)
+                    .accessibilityIdentifier("settings.pane.\(p.rawValue)")
             }
             .navigationSplitViewColumnWidth(190)
         } detail: {
@@ -324,6 +326,7 @@ private struct ShortcutsPane: View {
                         }
                         Spacer()
                         Button("Quit \(c.name)") { c.app.terminate(); DispatchQueue.main.asyncAfter(deadline: .now() + 1) { conflicts = ShortcutConflicts.current() } }
+                            .accessibilityIdentifier("conflict.quit")
                     }
                 }
             }
@@ -502,26 +505,36 @@ private struct BackupPane: View {
         Card(title: "Export") {
             Row(title: "Include unpinned history", detail: "Pinboards, tags and images are always included") {
                 Toggle("", isOn: $includeHistory).toggleStyle(.switch).labelsHidden()
+                    .accessibilityIdentifier("backup.includeHistory")
             }
             Text("Sensitive items (OTPs, keys, PAN, Aadhaar, account numbers…) are never exported.").font(.caption).foregroundStyle(.secondary)
             Button { export() } label: { Label("Export Backup…", systemImage: "square.and.arrow.up") }
                 .buttonStyle(.borderedProminent).disabled(busy)
+                .accessibilityIdentifier("backup.export")
         }
         Card(title: "Import") {
             Text("Merges into your current data: pinboards by name, items by content. Duplicates are skipped.")
                 .font(.callout).foregroundStyle(.secondary)
             Button { importBackup() } label: { Label("Import Backup…", systemImage: "square.and.arrow.down") }.disabled(busy)
+                .accessibilityIdentifier("backup.import")
         }
         if let status {
             Label(status, systemImage: "checkmark.circle.fill").foregroundStyle(.green).font(.callout)
+                .accessibilityIdentifier("backup.status")
         }
     }
 
     private func export() {
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = "myPaste Backup \(Date().formatted(.iso8601.year().month().day())).mypaste"
-        panel.allowedContentTypes = [UTType(filenameExtension: "mypaste") ?? .zip]
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let url: URL
+        if let testURL = UITest.saveURL {
+            url = testURL
+        } else {
+            let panel = NSSavePanel()
+            panel.nameFieldStringValue = "myPaste Backup \(Date().formatted(.iso8601.year().month().day())).mypaste"
+            panel.allowedContentTypes = [UTType(filenameExtension: "mypaste") ?? .zip]
+            guard panel.runModal() == .OK, let picked = panel.url else { return }
+            url = picked
+        }
         busy = true
         let store = model.store, history = includeHistory
         Task.detached {
@@ -537,9 +550,15 @@ private struct BackupPane: View {
     }
 
     private func importBackup() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [UTType(filenameExtension: "mypaste") ?? .zip, .zip]
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let url: URL
+        if let testURL = UITest.openURL {
+            url = testURL
+        } else {
+            let panel = NSOpenPanel()
+            panel.allowedContentTypes = [UTType(filenameExtension: "mypaste") ?? .zip, .zip]
+            guard panel.runModal() == .OK, let picked = panel.url else { return }
+            url = picked
+        }
         busy = true
         let store = model.store
         Task.detached {

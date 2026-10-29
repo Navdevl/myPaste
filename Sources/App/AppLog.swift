@@ -27,7 +27,7 @@ enum AppLog {
                 raise(s)
             }
         }
-        info("Launched \(AppVersion.display)")
+        info("Launched \(AppVersion.display) from \(Bundle.main.bundlePath); Accessibility trusted: \(Paster.isTrusted)")
     }
 
     static func info(_ message: String) { append("INFO", message) }
