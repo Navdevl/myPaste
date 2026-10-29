@@ -83,6 +83,16 @@ public final class ClipStore {
             UPDATE item SET linkFetched = 0 WHERE kind = 'link' AND linkTitle IS NULL AND hasLinkImage = 0;
             """)
         }
+        // Masked items become findable by what they are ("account", "ifsc", "api key").
+        m.registerMigration("v3") { db in
+            // Pre-GRDB builds could leave pin/tag rows for deleted items; GRDB's post-migration
+            // foreign-key check refuses to open the database while they exist.
+            try db.execute(sql: """
+            DELETE FROM pin WHERE itemID NOT IN (SELECT id FROM item) OR pinboardID NOT IN (SELECT id FROM pinboard);
+            DELETE FROM tag WHERE itemID NOT IN (SELECT id FROM item);
+            """)
+            for id in try Int64.fetchAll(db, sql: "SELECT id FROM item WHERE isSensitive = 1") { try reindex(db, id) }
+        }
         return m
     }
 
@@ -340,6 +350,7 @@ public final class ClipStore {
                 UPDATE item SET isSensitive = 1, sensitiveReason = ?, expiresAt = ?,
                                 kind = CASE WHEN ? THEN 'text' ELSE kind END WHERE id = ?
                 """, arguments: [reason.rawValue, now.timeIntervalSince1970 + ttl, reason.isIdentifier, id])
+                try Self.reindex(db, id)
             }
         }
         return hits.count
@@ -426,10 +437,12 @@ public final class ClipStore {
     }
 
     static func reindex(_ db: Database, _ id: Int64) throws {
-        guard let r = try Row.fetchOne(db, sql: "SELECT text, title, ocrText, linkTitle, filePaths FROM item WHERE id = ?", arguments: [id]) else { return }
+        guard let r = try Row.fetchOne(db, sql: "SELECT text, title, ocrText, linkTitle, filePaths, sensitiveReason FROM item WHERE id = ?", arguments: [id]) else { return }
         let tags = try String.fetchAll(db, sql: "SELECT name FROM tag WHERE itemID = ?", arguments: [id])
         let paths = decodePaths(r["filePaths"]).map { ($0 as NSString).lastPathComponent }
-        let fields: [String?] = [r["title"], r["text"], r["ocrText"], r["linkTitle"]]
+        // The card's sensitive label ("Account number", "IFSC") is searchable even though it isn't in the text.
+        let label = (r["sensitiveReason"] as String?).flatMap(SensitiveDetector.Reason.init(rawValue:))?.label
+        let fields: [String?] = [r["title"], r["text"], r["ocrText"], r["linkTitle"], label]
         let body = (fields.compactMap { $0 } + paths + tags.map { "#" + $0 }).joined(separator: "\n")
         try db.execute(sql: "DELETE FROM item_fts WHERE rowid = ?", arguments: [id])
         try db.execute(sql: "INSERT INTO item_fts (rowid, body) VALUES (?, ?)", arguments: [id, body])

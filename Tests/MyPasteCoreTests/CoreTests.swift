@@ -87,6 +87,22 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
                          sensitiveTTL: 600, now: t0.addingTimeInterval(offset))
     }
 
+    @Test func migrationDropsOrphanPins() throws {
+        let a = try text(try ClipStore(directory: dir), "kept", hash: "a")
+        // Simulate a pre-v3 database with a pin pointing at a deleted item.
+        let raw = try DatabaseQueue(path: dir.appendingPathComponent("clips.sqlite").path)
+        try raw.writeWithoutTransaction { db in
+            try db.execute(sql: "PRAGMA foreign_keys = OFF")
+            try db.execute(sql: "INSERT INTO pinboard (name, colorHex, position) VALUES ('B', '#000', 0)")
+            try db.execute(sql: "INSERT INTO pin (itemID, pinboardID, addedAt) VALUES (999, 1, 0), (?, 1, 0)", arguments: [a])
+            try db.execute(sql: "DELETE FROM grdb_migrations WHERE identifier = 'v3'")
+        }
+        try raw.close()
+        let store = try ClipStore(directory: dir)
+        #expect(try store.allItems().first?.pinboardIDs == [1])
+        #expect(try store.dbQueue.read { try Int.fetchOne($0, sql: "SELECT count(*) FROM pin") } == 1)
+    }
+
     @Test func dedupeAndSearch() throws {
         let store = try ClipStore(directory: dir)
         var changes = 0
@@ -112,6 +128,12 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
         #expect(try store.search("example site") == [b])
         try store.setOCRText(a, "INVOICE 2231")
         #expect(try store.search("invoice") == [a])
+
+        // Masked items are found by their label, not just their (hidden) text.
+        let ifsc = try store.insert(NewCapture(kind: .text, text: "HDFC0001234", contentHash: "c", sensitiveReason: "ifsc"),
+                                    sensitiveTTL: 600, now: t0.addingTimeInterval(3))
+        #expect(try store.search("ifsc") == [ifsc])
+        #expect(try store.search("account").isEmpty)
     }
 
     @Test func pinboards() throws {
