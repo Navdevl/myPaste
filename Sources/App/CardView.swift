@@ -53,6 +53,7 @@ struct CardView: View {
                 }
             }
             .background(alignment: .bottomTrailing) { watermark }
+            .overlay(alignment: .bottomLeading) { smartChip }
             .clipped()
             footer
         }
@@ -228,6 +229,26 @@ struct CardView: View {
             .padding(12)
         case .text:
             plainText
+        }
+    }
+
+    @ViewBuilder private var smartChip: some View {
+        let chips = model.chips(for: item)
+        if let chip = chips.first {
+            Button { model.runSmart(item) } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: chip.symbol).font(.system(size: 9.5, weight: .semibold))
+                    Text(chip.label).font(.system(size: 10.5, weight: .semibold)).lineLimit(1)
+                    if chips.count > 1 { Text("+\(chips.count - 1)").font(.system(size: 9.5)).opacity(0.75) }
+                }
+                .padding(.horizontal, 7).padding(.vertical, 3)
+                .foregroundStyle(.white)
+                .background(Capsule().fill(Color.accentColor.opacity(0.9)))
+            }
+            .buttonStyle(.plain)
+            .help(chip.title + " (⌘J) · ⌘K for all actions")
+            .accessibilityIdentifier("card.chip")
+            .padding(8)
         }
     }
 

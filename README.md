@@ -39,6 +39,7 @@ come from a SwiftPM resource bundle it looks for at the .app root, where a signe
 | ⌘O | Open link / show file in Finder |
 | ⌘C / ⌥⌘C | Copy / copy as plain text, without pasting |
 | ⌘I | Info |
+| ⌘J | Smart action: open Jira key / GitHub PR, decode JWT, convert timestamp |
 | ⌘K | Actions: JSON/SQL formatting, text cleanup, case, URL cleanup, encode/decode, hashes, epoch ↔ IST |
 | ⌘R ⌘T ⌘E | Rename / tags / edit text |
 | ⌘N | New pinboard |

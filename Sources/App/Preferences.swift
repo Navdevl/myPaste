@@ -29,6 +29,8 @@ final class Preferences: ObservableObject {
     @Published var ocr: Bool { didSet { d.set(ocr, forKey: "ocr") } }
     @Published var directPaste: Bool { didSet { d.set(directPaste, forKey: "directPaste") } }
     @Published var capturePaused: Bool { didSet { d.set(capturePaused, forKey: "capturePaused") } }
+    @Published var smartActions: Bool { didSet { d.set(smartActions, forKey: "smartActions") } }
+    @Published var jiraBaseURL: String { didSet { d.set(jiraBaseURL, forKey: "jiraBaseURL") } }
 
     var retention: RetentionPolicy { RetentionPolicy(maxItems: maxItems, maxDays: maxDays) }
     var sensitiveTTL: TimeInterval { TimeInterval(sensitiveMinutes * 60) }
@@ -38,6 +40,7 @@ final class Preferences: ObservableObject {
             "maxItems": 1000, "maxDays": 30, "sensitiveMinutes": 10,
             "excludedBundleIDs": Self.defaultExcluded,
             "linkPreviews": true, "ocr": true, "directPaste": true, "capturePaused": false,
+            "smartActions": true, "jiraBaseURL": "https://example.atlassian.net",
         ])
         maxItems = d.integer(forKey: "maxItems")
         maxDays = d.integer(forKey: "maxDays")
@@ -47,5 +50,7 @@ final class Preferences: ObservableObject {
         ocr = d.bool(forKey: "ocr")
         directPaste = d.bool(forKey: "directPaste")
         capturePaused = d.bool(forKey: "capturePaused")
+        smartActions = d.bool(forKey: "smartActions")
+        jiraBaseURL = d.string(forKey: "jiraBaseURL") ?? ""
     }
 }

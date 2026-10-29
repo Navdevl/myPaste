@@ -271,7 +271,7 @@ struct EditorView: View {
         }
         .fixedSize()
         .padding(18)
-        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+        .background(Color.solidSurface, in: RoundedRectangle(cornerRadius: 14))
         .shadow(radius: 20)
         .onAppear(perform: load)
     }
@@ -355,7 +355,7 @@ struct QuickLookView: View {
             Divider()
             content.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.98), in: RoundedRectangle(cornerRadius: 16))
+        .background(Color.solidSurface, in: RoundedRectangle(cornerRadius: 16))
     }
 
     @ViewBuilder private var content: some View {
@@ -418,7 +418,7 @@ struct QuickLookView: View {
 
 private struct ShortcutBar: View {
     private let hints: [(String, String)] = [
-        ("⌘1–9", "Paste"), ("⌘K", "Actions"), ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo"), ("⌘P", "Pin"), ("⌘⇧P", "Pin to…"),
+        ("⌘1–9", "Paste"), ("⌘J", "Smart action"), ("⌘K", "Actions"), ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo"), ("⌘P", "Pin"), ("⌘⇧P", "Pin to…"),
         ("⌘O", "Open"), ("⌥⌘C", "Copy plain"), ("⌘I", "Info"), ("⌘R", "Rename"), ("⌘T", "Tags"),
         ("⌘E", "Edit"), ("⌘↑↓", "First/last"), ("⌥0–9", "Boards"),
     ]
@@ -473,7 +473,7 @@ private struct PinPickerView: View {
         }
         .frame(width: 260)
         .padding(16)
-        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+        .background(Color.solidSurface, in: RoundedRectangle(cornerRadius: 14))
         .shadow(radius: 20)
     }
 }
@@ -511,7 +511,7 @@ private struct InfoView: View {
             }
             .frame(width: 380, alignment: .leading)
             .padding(16)
-            .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+            .background(Color.solidSurface, in: RoundedRectangle(cornerRadius: 14))
             .shadow(radius: 20)
         }
     }
@@ -532,13 +532,23 @@ private struct ActionsView: View {
     @EnvironmentObject var model: AppModel
     @State private var filter = ""
     @State private var highlighted = 0
-    @State private var options: [(Transform, String)] = []
+    @State private var options: [ActionOption] = []
     @FocusState private var focused: Bool
 
-    private var shown: [(Transform, String)] {
+    /// One row in the ⌘K list: a smart suggestion (may open a URL) or a text transform.
+    struct ActionOption: Identifiable {
+        let id: String
+        let group: String
+        let title: String
+        let keywords: String
+        let result: String
+        var url: URL? = nil
+    }
+
+    private var shown: [ActionOption] {
         let q = filter.lowercased().trimmingCharacters(in: .whitespaces)
         guard !q.isEmpty else { return options }
-        return options.filter { ($0.0.title + " " + $0.0.keywords + " " + $0.0.group.rawValue).lowercased().contains(q) }
+        return options.filter { ($0.title + " " + $0.keywords + " " + $0.group).lowercased().contains(q) }
     }
 
     var body: some View {
@@ -560,13 +570,14 @@ private struct ActionsView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 1) {
-                            ForEach(Array(shown.enumerated()), id: \.element.0.id) { i, pair in
-                                if i == 0 || shown[i - 1].0.group != pair.0.group {
-                                    Text(pair.0.group.rawValue.uppercased())
+                            ForEach(Array(shown.enumerated()), id: \.element.id) { i, option in
+                                if i == 0 || shown[i - 1].group != option.group {
+                                    Text(option.group.uppercased())
                                         .font(.system(size: 9.5, weight: .bold)).foregroundStyle(.secondary)
                                         .padding(.top, i == 0 ? 2 : 8).padding(.leading, 6)
                                 }
-                                Text(pair.0.title)
+                                Label(option.title, systemImage: option.url != nil ? "arrow.up.forward.square" : "text.cursor")
+                                    .labelStyle(.titleAndIcon)
                                     .font(.system(size: 12.5))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.horizontal, 8).padding(.vertical, 4)
@@ -575,11 +586,11 @@ private struct ActionsView: View {
                                     .contentShape(Rectangle())
                                     .onTapGesture { highlighted = i }
                                     .onTapGesture(count: 2) { highlighted = i; run(save: false) }
-                                    .id(pair.0.id)
+                                    .id(option.id)
                             }
                         }
                     }
-                    .onChange(of: highlighted) { _, i in if i < shown.count { proxy.scrollTo(shown[i].0.id) } }
+                    .onChange(of: highlighted) { _, i in if i < shown.count { proxy.scrollTo(shown[i].id) } }
                 }
             }
             .frame(width: 250)
@@ -587,22 +598,32 @@ private struct ActionsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Result").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
                 ScrollView {
-                    Text(highlighted < shown.count ? String(shown[highlighted].1.prefix(4000)) : "No actions fit this item")
+                    Text(highlighted < shown.count ? String(shown[highlighted].result.prefix(4000)) : "No actions fit this item")
                         .font(.system(size: 12, design: .monospaced))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
                 }
                 Spacer(minLength: 0)
-                Text("↩ paste result · ⌘↩ save as new card · Esc").font(.caption).foregroundStyle(.tertiary)
+                Text(highlighted < shown.count && shown[highlighted].url != nil ? "↩ open · Esc" : "↩ paste result · ⌘↩ save as new card · Esc")
+                    .font(.caption).foregroundStyle(.tertiary)
             }
             .frame(width: 330)
         }
         .frame(height: 250)
         .padding(14)
-        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+        .background(Color.solidSurface, in: RoundedRectangle(cornerRadius: 14))
         .shadow(radius: 20)
         .onAppear {
-            options = Transform.available(for: model.item(itemID)?.text ?? "")
+            let text = model.item(itemID)?.text ?? ""
+            let smart = model.item(itemID).map(model.chips(for:)) ?? []
+            options = smart.enumerated().map { i, c in
+                switch c.action {
+                case .open(let url): return ActionOption(id: "smart.\(i)", group: "Suggested", title: c.title, keywords: c.label, result: url.absoluteString, url: url)
+                case .text(let t): return ActionOption(id: "smart.\(i)", group: "Suggested", title: c.title, keywords: c.label, result: t)
+                }
+            } + Transform.available(for: text).map { t, out in
+                ActionOption(id: t.id, group: t.group.rawValue, title: t.title, keywords: t.keywords, result: out)
+            }
             DispatchQueue.main.async { focused = true }
         }
     }
@@ -614,8 +635,9 @@ private struct ActionsView: View {
 
     private func run(save: Bool) {
         guard highlighted < shown.count else { NSSound.beep(); return }
-        let result = shown[highlighted].1
+        let option = shown[highlighted]
         model.editor = nil
-        if save { model.saveAsNewItem(result) } else { model.onPasteText?(result) }
+        if let url = option.url { model.onOpenURL?(url); return }
+        if save { model.saveAsNewItem(option.result) } else { model.onPasteText?(option.result) }
     }
 }

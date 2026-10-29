@@ -114,6 +114,10 @@ public enum Classifier {
         }.count
         if endings >= max(1, lines.count / 3) { score += 1 }
         if codeKeywords.contains(where: { s.contains($0) }) { score += 1 }
+        // SQL is often typed lowercase: two clause keywords together are a strong signal.
+        let lower = s.lowercased()
+        let sqlHits = ["select ", " from ", "where ", "group by", "order by", "insert into", "update ", " join "].filter { lower.contains($0) }.count
+        if sqlHits >= 2 { score += 2 }
         let symbols = s.filter { "{}[]();=<>$&|".contains($0) }.count
         if Double(symbols) / Double(max(s.count, 1)) > 0.04 { score += 1 }
         if s.contains("()") || s.contains("::") || s.contains("!=") || s.contains("==") { score += 1 }

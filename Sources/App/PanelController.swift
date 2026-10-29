@@ -278,6 +278,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             case "p": if let item { model.quickPin(item) }; return true
             case "o": if let item { model.onOpen?(item) }; return true
             case "i": if let item { model.editor = .info(item.id) }; return true
+            case "j": if let item { model.runSmart(item) }; return true
             case "k":
                 if let item, item.text != nil, item.kind != .image, item.kind != .file { model.editor = .actions(item.id) } else { NSSound.beep() }
                 return true

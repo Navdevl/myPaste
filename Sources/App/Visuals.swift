@@ -361,3 +361,13 @@ struct ZoomableImage: NSViewRepresentable {
         scroll.magnification = m
     }
 }
+
+extension Color {
+    /// Opaque surface for overlays on borderless panels. macOS 26's windowBackgroundColor is translucent,
+    /// which let whatever was behind Quick Look show through the text.
+    static let solidSurface = Color(nsColor: NSColor(name: "mypaste.solidSurface") { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 0.13, green: 0.13, blue: 0.145, alpha: 1)
+            : NSColor(srgbRed: 0.975, green: 0.975, blue: 0.98, alpha: 1)
+    })
+}

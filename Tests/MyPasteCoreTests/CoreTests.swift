@@ -38,6 +38,8 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
         #expect(kind("def f(x):\n    return x * 2") == .code)
         #expect(kind("{\"a\":1,\"b\":[2]}") == .code)
         #expect(kind("[1, 2]") == .code)
+        #expect(kind("-- totals\nselect merchant_id, sum(amount) as total\nfrom payments where status = 'settled'\ngroup by merchant_id limit 100;") == .code)
+        #expect(kind("Please select the option from the menu where it says Save.") == .text)
         #expect(kind("Meeting notes:\nWe agreed to ship on Friday.\nAction items to follow.") == .text)
     }
 
@@ -452,5 +454,48 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
         #expect(json.contains { $0 == ("\"amount\"", .key) })
         #expect(json.contains { $0 == ("true", .keyword) })
         #expect(json.contains { $0 == ("100", .number) })
+    }
+}
+
+@Suite struct SmartDetectorTests {
+    let jira = URL(string: "https://example.atlassian.net")!
+    let now = Date(timeIntervalSince1970: 1_799_996_400) // one hour before exp below
+
+    private func b64url(_ s: String) -> String {
+        Data(s.utf8).base64EncodedString().replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+    }
+
+    @Test func jwtDecode() throws {
+        let token = b64url(#"{"alg":"HS256","typ":"JWT"}"#) + "." + b64url(#"{"sub":"test-user","exp":1800000000,"iat":1799990000}"#) + ".sig"
+        let chips = SmartDetector.chips(for: token, jiraBase: jira, now: now)
+        let jwt = try #require(chips.first)
+        #expect(jwt.label.hasPrefix("JWT · expires"))
+        guard case .text(let pretty) = jwt.action else { Issue.record("expected text"); return }
+        #expect(pretty.contains("\"sub\" : \"test-user\""))
+        #expect(pretty.contains("exp: 2027-01-15 13:30:00 IST"))
+        #expect(pretty.contains("signature not verified"))
+        #expect(SmartDetector.chips(for: token, jiraBase: jira, now: now.addingTimeInterval(7200)).first?.label.hasPrefix("JWT · expired") == true)
+    }
+
+    @Test func jiraKeys() {
+        #expect(SmartDetector.jiraKeys(in: "Fix ABC-1234 and XYZ-12, not UTF-8 or SHA-256 or COVID-19") == ["ABC-1234", "XYZ-12"])
+        let chips = SmartDetector.chips(for: "see ABC-1234", jiraBase: jira, now: now)
+        #expect(chips.map(\.label) == ["ABC-1234"])
+        #expect(chips.first?.action == .open(URL(string: "https://example.atlassian.net/browse/ABC-1234")!))
+        #expect(SmartDetector.chips(for: "see ABC-1234", jiraBase: nil, now: now).isEmpty)
+    }
+
+    @Test func devIDs() {
+        let uuid = SmartDetector.chips(for: "3F2504E0-4F89-41D3-9A0C-0305E82C3301", jiraBase: nil, now: now)
+        #expect(uuid.first?.label == "UUID v4")
+        #expect(uuid.first?.action == .text("3f2504e04f8941d39a0c0305e82c3301"))
+        let ts = SmartDetector.chips(for: "1800000000", jiraBase: nil, now: now)
+        #expect(ts.first?.label == "15 Jan 2027, 13:30 IST")
+        let gh = SmartDetector.chips(for: "https://github.com/swiftlang/swift/pull/123", jiraBase: jira, now: now)
+        #expect(gh.first?.label == "swiftlang/swift#123")
+        #expect(SmartDetector.chips(for: "#3B82F6", jiraBase: nil, now: now).first?.label == "rgb(59, 130, 246)")
+        #expect(SmartDetector.chips(for: "{\"a\":1}", jiraBase: nil, now: now).first?.label == "Pretty JSON")
+        #expect(SmartDetector.chips(for: "hello world", jiraBase: jira, now: now).isEmpty)
     }
 }

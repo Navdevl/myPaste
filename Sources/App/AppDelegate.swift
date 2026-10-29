@@ -62,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.onCopy = { [weak self] item, plain in self?.copy(item, plain: plain) }
         model.onOpen = { [weak self] item in self?.open(item) }
         model.onPasteText = { [weak self] text in self?.pasteText(text, caretBack: nil) }
+        model.onOpenURL = { [weak self] url in self?.panel.hide(); NSWorkspace.shared.open(url) }
         model.onAddToStack = { [weak self] item in self?.panel.hide(); self?.stack.append(item) }
         model.onOpenSettings = { [weak self] in self?.openSettings() }
 

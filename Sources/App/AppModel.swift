@@ -60,6 +60,29 @@ final class AppModel: ObservableObject {
     var onOpen: ((ClipItem) -> Void)?
     /// Paste arbitrary text (⌘K results).
     var onPasteText: ((String) -> Void)?
+    var onOpenURL: ((URL) -> Void)?
+
+    private var chipCache: [String: [SmartChip]] = [:]
+
+    /// Smart suggestions for a card. Cached per content; masked identifiers never get chips.
+    func chips(for item: ClipItem) -> [SmartChip] {
+        guard prefs.smartActions, item.maskedPreview == nil, let text = item.text,
+              [.text, .richText, .code, .link, .color].contains(item.kind) else { return [] }
+        let key = item.contentHash
+        if let cached = chipCache[key] { return cached }
+        let chips = SmartDetector.chips(for: text, jiraBase: URL(string: prefs.jiraBaseURL))
+        chipCache[key] = chips
+        return chips
+    }
+
+    /// ⌘J / chip click: links open directly; text results open ⌘K with the suggestion highlighted.
+    func runSmart(_ item: ClipItem) {
+        guard let chip = chips(for: item).first else { NSSound.beep(); return }
+        switch chip.action {
+        case .open(let url): onOpenURL?(url)
+        case .text: editor = .actions(item.id)
+        }
+    }
 
     /// ⌘⌘K "save as new card": goes through the normal capture path so it's classified and searchable.
     func saveAsNewItem(_ text: String) {
@@ -102,6 +125,7 @@ final class AppModel: ObservableObject {
     }
 
     func reload() {
+        if chipCache.count > 2000 { chipCache.removeAll() }
         items = Perf.measure("reload") { (try? store.allItems()) ?? [] }
         pinboards = (try? store.pinboards()) ?? []
         if case .board(let id) = tab, !pinboards.contains(where: { $0.id == id }) { tab = .history }

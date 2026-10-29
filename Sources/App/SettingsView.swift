@@ -204,6 +204,17 @@ private struct GeneralPane: View {
                 Toggle("", isOn: $prefs.directPaste).toggleStyle(.switch).labelsHidden()
             }
         }
+        Card(title: "Smart actions") {
+            Row(title: "Suggest actions on cards", detail: "JWT decode, Jira keys, GitHub PRs, timestamps, UUIDs, JSON/SQL. Press ⌘J or click the chip.") {
+                Toggle("", isOn: $prefs.smartActions).toggleStyle(.switch).labelsHidden()
+            }
+            Divider()
+            Row(title: "Jira site", detail: "Keys like ABC-1234 open at <site>/browse/KEY") {
+                TextField("https://yoursite.atlassian.net", text: $prefs.jiraBaseURL)
+                    .textFieldStyle(.roundedBorder).frame(width: 260)
+                    .accessibilityIdentifier("settings.jira")
+            }
+        }
         Card(title: "Permissions") {
             Row(title: "Accessibility", detail: "Needed for direct paste and Paste Stack") {
                 if trusted {
@@ -295,7 +306,7 @@ private struct ShortcutsPane: View {
 
     private let panelKeys: [(String, String)] = [
         ("← →", "Select"), ("↑ ↓", "Pinboards"), ("↩", "Paste"), ("⇧↩", "Paste plain"), ("⌘1–9", "Quick paste"),
-        ("hold ⌘", "Edit mode"), ("hold ⇧", "Plain mode"), ("Space", "Quick Look"), ("⌘K", "Actions"),
+        ("hold ⌘", "Edit mode"), ("hold ⇧", "Plain mode"), ("Space", "Quick Look"), ("⌘J", "Smart action"), ("⌘K", "Actions"),
         ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo delete"), ("⌘P", "Pin"), ("⌘⇧P", "Pin to…"), ("⌘O", "Open"),
         ("⌘C", "Copy"), ("⌥⌘C", "Copy plain"), ("⌘I", "Info"), ("⌘R", "Rename"), ("⌘T", "Tags"), ("⌘E", "Edit"),
         ("⌘↑ ⌘↓", "First / last"), ("Tab", "Type filter"), ("⌥0–9", "Jump to board"), ("Esc", "Close"),
