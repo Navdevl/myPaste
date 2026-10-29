@@ -143,6 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             AppLog.error("Saving a \(capture.kind.rawValue) capture failed", error)
             return
         }
+        SoundFX.shared.play(.copy)
         _ = try? store.prune(prefs.retention)
         guard let item = try? store.item(id: id) else { return }
         enrichment.process(item)
@@ -169,6 +170,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // Give the window server a beat to return key focus to the previous app.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { Paster.postCommandV() }
+        SoundFX.shared.play(.paste)
     }
 
     private func pasteText(_ text: String, caretBack: Int?) {
@@ -177,6 +179,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         panel.hideNow()
         guard prefs.directPaste else { return }
         guard Paster.isTrusted else { AppLog.info("Direct paste skipped: Accessibility not granted"); Paster.requestTrust(); return }
+        SoundFX.shared.play(.paste)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
             Paster.postCommandV()
             if let n = caretBack, n > 0 {

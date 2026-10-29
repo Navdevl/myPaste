@@ -62,6 +62,10 @@ Privacy: OTPs, API keys, JWTs, private keys and password-like text are blurred; 
 UPI IDs, account and card numbers are always masked in previews (e.g. `••••1234`). All of them expire
 after the sensitive TTL unless pinned, and existing history is re-scanned at launch.
 
+Maccy: Settings → Backup → "Import Pins from Maccy" copies Maccy's pinned items onto a "Maccy" pinboard.
+
+Sounds: Settings → Appearance → Sounds (copy / paste / delete clicks, volume, per-event switches).
+
 Backup: Settings → Backup exports a `.mypaste` zip of pinboards (optionally history). Sensitive items are
 never exported. Import merges pinboards by name and items by content.
 

@@ -2,6 +2,13 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
+## 1.3.0 (2026-10-29)
+
+- Import pins from Maccy (Settings → Backup): Maccy's pinned items land on a "Maccy" pinboard with their
+  formatting, source app and copy dates. Reads a temporary copy of Maccy's store; safe to re-run.
+- Sound effects: subtle synthesized clicks for copy, paste and delete. On at 40%, with volume, per-event
+  switches and Play buttons in Settings → Appearance (silent during UI tests).
+
 ## 1.2.1 (2026-10-29)
 
 - Paste Stack is now optional and off by default (Settings → Shortcuts). While off, ⇧⌘C isn't registered,

@@ -41,6 +41,11 @@ final class Preferences: ObservableObject {
     @Published var hotkeyCyclesTabs: Bool { didSet { d.set(hotkeyCyclesTabs, forKey: "hotkeyCyclesTabs") } }
     /// Off by default: ⇧⌘C stays free for other apps until you opt in.
     @Published var pasteStackEnabled: Bool { didSet { d.set(pasteStackEnabled, forKey: "pasteStackEnabled") } }
+    @Published var soundsEnabled: Bool { didSet { d.set(soundsEnabled, forKey: "soundsEnabled") } }
+    @Published var soundVolume: Double { didSet { d.set(soundVolume, forKey: "soundVolume") } }
+    @Published var soundCopy: Bool { didSet { d.set(soundCopy, forKey: "soundCopy") } }
+    @Published var soundPaste: Bool { didSet { d.set(soundPaste, forKey: "soundPaste") } }
+    @Published var soundDelete: Bool { didSet { d.set(soundDelete, forKey: "soundDelete") } }
 
     var retention: RetentionPolicy { RetentionPolicy(maxItems: maxItems, maxDays: maxDays) }
     var sensitiveTTL: TimeInterval { TimeInterval(sensitiveMinutes * 60) }
@@ -53,6 +58,8 @@ final class Preferences: ObservableObject {
             "smartActions": true, "jiraBaseURL": "https://example.atlassian.net",
             "glideSelection": true, "sweepSelection": true, "parallax": true, "haptics": true,
             "doubleCtrlInPanel": true, "doubleCtrlGlobal": true, "hotkeyCyclesTabs": true, "pasteStackEnabled": false,
+            // UI test runs stay silent; everyone else gets sounds at 40%.
+            "soundsEnabled": !UITest.enabled, "soundVolume": 0.4, "soundCopy": true, "soundPaste": true, "soundDelete": true,
         ])
         maxItems = d.integer(forKey: "maxItems")
         maxDays = d.integer(forKey: "maxDays")
@@ -72,5 +79,10 @@ final class Preferences: ObservableObject {
         doubleCtrlGlobal = d.bool(forKey: "doubleCtrlGlobal")
         hotkeyCyclesTabs = d.bool(forKey: "hotkeyCyclesTabs")
         pasteStackEnabled = d.bool(forKey: "pasteStackEnabled")
+        soundsEnabled = d.bool(forKey: "soundsEnabled")
+        soundVolume = d.double(forKey: "soundVolume")
+        soundCopy = d.bool(forKey: "soundCopy")
+        soundPaste = d.bool(forKey: "soundPaste")
+        soundDelete = d.bool(forKey: "soundDelete")
     }
 }

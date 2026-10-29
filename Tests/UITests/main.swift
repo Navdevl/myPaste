@@ -17,6 +17,26 @@ let fakeMaccy = args.count > 2 ? URL(fileURLWithPath: args[2]) : nil
 let work = FileManager.default.temporaryDirectory.appendingPathComponent("mypaste-uitest-\(UUID().uuidString)")
 let dataDir = work.appendingPathComponent("data")
 let exportURL = work.appendingPathComponent("export.mypaste")
+let maccyStore = work.appendingPathComponent("maccy/Storage.sqlite")
+
+/// A tiny store with Maccy 2.x's schema (two pins, one unpinned) built with the sqlite3 CLI.
+func makeFakeMaccyStore() throws {
+    try FileManager.default.createDirectory(at: maccyStore.deletingLastPathComponent(), withIntermediateDirectories: true)
+    let sql = """
+    CREATE TABLE ZHISTORYITEM (Z_PK INTEGER PRIMARY KEY, Z_ENT INTEGER, Z_OPT INTEGER, ZNUMBEROFCOPIES INTEGER, ZFIRSTCOPIEDAT TIMESTAMP, ZLASTCOPIEDAT TIMESTAMP, ZAPPLICATION VARCHAR, ZPIN VARCHAR, ZTITLE VARCHAR);
+    CREATE TABLE ZHISTORYITEMCONTENT (Z_PK INTEGER PRIMARY KEY, Z_ENT INTEGER, Z_OPT INTEGER, ZITEM INTEGER, ZTYPE VARCHAR, ZVALUE BLOB);
+    INSERT INTO ZHISTORYITEM VALUES (1,1,1,1,799926848,799926848,'com.apple.Notes','b','a');
+    INSERT INTO ZHISTORYITEM VALUES (2,1,1,1,799926848,799926848,'com.apple.Notes','o','b');
+    INSERT INTO ZHISTORYITEM VALUES (3,1,1,1,799926848,799926848,'com.apple.Notes',NULL,'c');
+    INSERT INTO ZHISTORYITEMCONTENT VALUES (1,2,1,1,'public.utf8-plain-text',CAST('[uitest] maccy pin one' AS BLOB));
+    INSERT INTO ZHISTORYITEMCONTENT VALUES (2,2,1,2,'public.utf8-plain-text',CAST('[uitest] maccy pin two' AS BLOB));
+    INSERT INTO ZHISTORYITEMCONTENT VALUES (3,2,1,3,'public.utf8-plain-text',CAST('[uitest] maccy unpinned' AS BLOB));
+    """
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+    p.arguments = [maccyStore.path, sql]
+    try p.run(); p.waitUntilExit()
+}
 
 // MARK: Tiny test framework
 
@@ -223,11 +243,13 @@ func runAll() async {
         exit(2)
     }
     try? FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
+    try? makeFakeMaccyStore()
     let savedClipboard = NSPasteboard.general.string(forType: .string)
 
     let config = NSWorkspace.OpenConfiguration()
     config.environment = ["MYPASTE_UITEST": "1", "MYPASTE_DATA_DIR": dataDir.path,
-                          "MYPASTE_UITEST_SAVE": exportURL.path, "MYPASTE_UITEST_OPEN": exportURL.path]
+                          "MYPASTE_UITEST_SAVE": exportURL.path, "MYPASTE_UITEST_OPEN": exportURL.path,
+                          "MYPASTE_UITEST_MACCY": maccyStore.path]
     config.arguments = [] // the app uses a wiped "local.mypaste.uitest" defaults domain in test mode
     config.createsNewApplicationInstance = true
     config.activates = false
@@ -420,6 +442,35 @@ func runAll() async {
         guard let importButton = await element("backup.import") else { check(false, "Import button found"); return }
         check(importButton.press(), "Import pressed")
         check(await waitFor(5) { elements("backup.status").contains { text(of: $0).contains("already here") } }, "import reports duplicates")
+    }
+
+    await test("Settings → Backup: Import Pins from Maccy") {
+        post("local.mypaste.uitest.settings", "backup")
+        guard let button = await element("backup.maccy", timeout: 5) else { check(false, "Maccy import button shown"); return }
+        check(button.press(), "Import pressed")
+        let ok = await waitFor(5) {
+            guard let board = (try? store.pinboards())?.first(where: { $0.name == "Maccy" }) else { return false }
+            let pinned = items().filter { $0.pinboardIDs.contains(board.id) }.compactMap(\.text)
+            return Set(pinned) == ["[uitest] maccy pin one", "[uitest] maccy pin two"]
+        }
+        check(ok, "both pins on a Maccy board, unpinned item skipped")
+        check(await waitFor(3) { elements("backup.status").contains { text(of: $0).contains("Imported 2 pins") } }, "status reports 2 imported")
+        _ = (await element("backup.maccy"))?.press()
+        check(await waitFor(3) { elements("backup.status").contains { text(of: $0).contains("2 already here") } }, "re-run imports nothing new")
+    }
+
+    await test("Settings → Appearance: sounds switch and Play buttons") {
+        post("local.mypaste.uitest.settings", "appearance")
+        guard let toggle = await element("appearance.sounds", timeout: 5) else { check(false, "sounds switch found"); return }
+        check(toggle.press(), "sounds switched on")
+        await sleep(0.5)
+        let played = elements("appearance.sounds").count == 1 // still present, pane re-rendered with sound rows
+        check(played, "sounds pane rendered")
+        await copy("[uitest] sound on copy") // plays the copy click through the real path
+        await sleep(0.5)
+        let log = (try? String(contentsOf: dataDir.appendingPathComponent("logs/myPaste.log"), encoding: .utf8)) ?? ""
+        check(!log.contains("Audio engine failed"), "audio engine started without errors")
+        check(!launched.isTerminated, "app still running after playing sounds")
     }
 
     await test("Settings → Shortcuts: conflict Quit button quits the clashing app") {

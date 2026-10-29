@@ -273,6 +273,7 @@ final class AppModel: ObservableObject {
         let idx = visible.firstIndex { $0.id == item.id } ?? 0
         if quickLookID == item.id { quickLookID = nil }
         pendingDeletes.append(item.id)
+        SoundFX.shared.play(.delete)
         if pendingDeletes.count > Self.maxUndo { commit(pendingDeletes.removeFirst()) }
         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) { recompute(resetSelection: false) }
         if !visible.isEmpty { selectedID = visible[min(idx, visible.count - 1)].id }

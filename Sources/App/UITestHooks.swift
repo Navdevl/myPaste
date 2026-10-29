@@ -6,6 +6,7 @@ enum UITest {
     static let enabled = ProcessInfo.processInfo.environment["MYPASTE_UITEST"] == "1"
     static var saveURL: URL? { url("MYPASTE_UITEST_SAVE") }
     static var openURL: URL? { url("MYPASTE_UITEST_OPEN") }
+    static var maccyStore: URL? { url("MYPASTE_UITEST_MACCY") }
 
     private static func url(_ key: String) -> URL? {
         guard enabled, let path = ProcessInfo.processInfo.environment[key] else { return nil }

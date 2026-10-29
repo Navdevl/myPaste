@@ -50,6 +50,7 @@ final class PasteStack: ObservableObject {
 
     private func didPaste() {
         guard !queue.isEmpty else { return }
+        SoundFX.shared.play(.paste)
         // Let the target app read the pasteboard before we swap in the next item.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
             guard let self, !self.queue.isEmpty else { return }

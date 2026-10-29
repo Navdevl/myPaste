@@ -36,7 +36,7 @@ let package = Package(
         ),
         .testTarget(
             name: "MyPasteCoreTests",
-            dependencies: ["MyPasteCore"],
+            dependencies: ["MyPasteCore", .product(name: "GRDB", package: "GRDB.swift")],
             path: "Tests/MyPasteCoreTests",
             swiftSettings: swift5
         ),
