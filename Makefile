@@ -32,6 +32,7 @@ app:
 	plutil -replace CFBundleShortVersionString -string "$(VERSION)" $(BUNDLE)/Contents/Info.plist
 	plutil -replace CFBundleVersion -string "$(BUILD_NUMBER)" $(BUNDLE)/Contents/Info.plist
 	cp Resources/AppIcon.icns $(BUNDLE)/Contents/Resources/ 2>/dev/null || true
+	cp -R Resources/Sounds $(BUNDLE)/Contents/Resources/Sounds
 	for b in $(RELEASE)/*.bundle; do [ -e "$$b" ] && cp -R "$$b" $(BUNDLE)/Contents/Resources/; done; true
 	@if security find-certificate -c "$(IDENTITY)" >/dev/null 2>&1; then \
 		codesign --force --deep --sign "$(IDENTITY)" --options runtime $(BUNDLE); \

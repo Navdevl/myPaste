@@ -1,7 +1,8 @@
+import AppKit
 import AVFoundation
 
-/// Subtle, synthesized UI sounds: no audio assets, generated once into PCM buffers.
-/// The engine starts on demand and stops after a few idle seconds so it costs nothing in the background.
+/// UI sounds: the bundled pack (Resources/Sounds, rendered by scripts/make-sounds.swift) or a file the
+/// user picks. Players are cached per event; AVAudioPlayer handles any format macOS can decode.
 final class SoundFX {
     static let shared = SoundFX()
 
@@ -15,41 +16,127 @@ final class SoundFX {
             case .delete: return "Delete"
             }
         }
-    }
 
-    private let engine = AVAudioEngine()
-    private let player = AVAudioPlayerNode()
-    private let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
-    private var buffers: [Effect: AVAudioPCMBuffer] = [:]
-    private var idleTimer: Timer?
-    private let prefs = Preferences.shared
-
-    private init() {
-        engine.attach(player)
-        engine.connect(player, to: engine.mainMixerNode, format: format)
-        for e in Effect.allCases { buffers[e] = render(e) }
-    }
-
-    /// Plays if sounds and this effect are enabled. `force` is for the Settings "Play" buttons.
-    func play(_ effect: Effect, force: Bool = false) {
-        guard force || (prefs.soundsEnabled && isEnabled(effect)), let buffer = buffers[effect] else { return }
-        DispatchQueue.main.async { [self] in
-            do {
-                if !engine.isRunning { try engine.start() }
-            } catch {
-                AppLog.error("Audio engine failed to start", error)
-                return
-            }
-            engine.mainMixerNode.outputVolume = Float(prefs.soundVolume)
-            player.scheduleBuffer(buffer, at: nil, options: [.interrupts])
-            if !player.isPlaying { player.play() }
-            idleTimer?.invalidate()
-            idleTimer = Timer.scheduledTimer(withTimeInterval: 4, repeats: false) { [weak self] _ in
-                self?.player.stop()
-                self?.engine.stop()
+        var defaultSound: String {
+            switch self {
+            case .copy: return "wood-knock"
+            case .paste: return "soft-pop"
+            case .delete: return "whoosh"
             }
         }
     }
+
+    struct BuiltIn: Identifiable, Hashable {
+        let id: String
+        let name: String
+        /// Which event it was designed for; listed first in that event's menu.
+        let suits: Effect
+    }
+
+    static let builtIns: [BuiltIn] = [
+        BuiltIn(id: "wood-knock", name: "Wood Knock", suits: .copy),
+        BuiltIn(id: "soft-key", name: "Soft Key", suits: .copy),
+        BuiltIn(id: "glass-tick", name: "Glass Tick", suits: .copy),
+        BuiltIn(id: "paper-snap", name: "Paper Snap", suits: .copy),
+        BuiltIn(id: "bubble", name: "Bubble", suits: .copy),
+        BuiltIn(id: "marimba", name: "Marimba", suits: .copy),
+        BuiltIn(id: "classic-tick", name: "Classic Tick (1.3.0)", suits: .copy),
+        BuiltIn(id: "soft-pop", name: "Soft Pop", suits: .paste),
+        BuiltIn(id: "water-drop", name: "Water Drop", suits: .paste),
+        BuiltIn(id: "thock", name: "Thock", suits: .paste),
+        BuiltIn(id: "chime", name: "Chime", suits: .paste),
+        BuiltIn(id: "whoosh", name: "Whoosh", suits: .delete),
+        BuiltIn(id: "crumple", name: "Crumple", suits: .delete),
+        BuiltIn(id: "swipe", name: "Swipe", suits: .delete),
+        BuiltIn(id: "soft-thud", name: "Soft Thud", suits: .delete),
+    ]
+
+    /// Selection value meaning "the user's own file for this event".
+    static let customID = "custom"
+
+    private let prefs = Preferences.shared
+    private var players: [URL: AVAudioPlayer] = [:]
+
+    static var customDirectory: URL { AppDelegate.dataDirectory.appendingPathComponent("sounds", isDirectory: true) }
+
+    /// Plays the chosen sound if sounds and this event are on. `force` is for the Settings Play buttons.
+    func play(_ effect: Effect, force: Bool = false) {
+        guard force || (prefs.soundsEnabled && isEnabled(effect)) else { return }
+        play(url: url(for: effect))
+    }
+
+    func preview(_ soundID: String) {
+        play(url: Bundle.main.url(forResource: soundID, withExtension: "wav", subdirectory: "Sounds"))
+    }
+
+    private func play(url: URL?) {
+        guard let url else { return }
+        DispatchQueue.main.async { [self] in
+            let player: AVAudioPlayer
+            if let cached = players[url] {
+                player = cached
+            } else {
+                do {
+                    player = try AVAudioPlayer(contentsOf: url)
+                    player.prepareToPlay()
+                    players[url] = player
+                } catch {
+                    AppLog.error("Can't play sound \(url.lastPathComponent)", error)
+                    return
+                }
+            }
+            player.volume = Float(prefs.soundVolume)
+            player.currentTime = 0
+            player.play()
+        }
+    }
+
+    func url(for effect: Effect) -> URL? {
+        let choice = selection(for: effect)
+        if choice == Self.customID, let file = customFile(for: effect) { return file }
+        let id = Self.builtIns.contains { $0.id == choice } ? choice : effect.defaultSound
+        return Bundle.main.url(forResource: id, withExtension: "wav", subdirectory: "Sounds")
+    }
+
+    func selection(for effect: Effect) -> String {
+        switch effect {
+        case .copy: return prefs.soundCopyChoice
+        case .paste: return prefs.soundPasteChoice
+        case .delete: return prefs.soundDeleteChoice
+        }
+    }
+
+    func setSelection(_ id: String, for effect: Effect) {
+        switch effect {
+        case .copy: prefs.soundCopyChoice = id
+        case .paste: prefs.soundPasteChoice = id
+        case .delete: prefs.soundDeleteChoice = id
+        }
+    }
+
+    func customFile(for effect: Effect) -> URL? {
+        let files = (try? FileManager.default.contentsOfDirectory(at: Self.customDirectory, includingPropertiesForKeys: nil)) ?? []
+        return files.first { $0.deletingPathExtension().lastPathComponent == "custom-\(effect.rawValue)" }
+    }
+
+    /// Copies the user's file into myPaste's data folder (so moving or deleting the original doesn't break
+    /// it), checks it decodes, and selects it.
+    func installCustom(_ source: URL, for effect: Effect) throws {
+        _ = try AVAudioPlayer(contentsOf: source) // throws if macOS can't decode it
+        let fm = FileManager.default
+        try fm.createDirectory(at: Self.customDirectory, withIntermediateDirectories: true)
+        if let old = customFile(for: effect) {
+            players[old] = nil
+            try? fm.removeItem(at: old)
+        }
+        let dest = Self.customDirectory.appendingPathComponent("custom-\(effect.rawValue).\(source.pathExtension.lowercased())")
+        try fm.copyItem(at: source, to: dest)
+        setCustomName(source.lastPathComponent, for: effect)
+        setSelection(Self.customID, for: effect)
+    }
+
+    func customName(for effect: Effect) -> String? { AppDefaults.store.string(forKey: "soundCustomName.\(effect.rawValue)") }
+    private func setCustomName(_ name: String, for effect: Effect) { AppDefaults.store.set(name, forKey: "soundCustomName.\(effect.rawValue)") }
 
     private func isEnabled(_ e: Effect) -> Bool {
         switch e {
@@ -57,55 +144,5 @@ final class SoundFX {
         case .paste: return prefs.soundPaste
         case .delete: return prefs.soundDelete
         }
-    }
-
-    // MARK: Synthesis
-
-    private func render(_ e: Effect) -> AVAudioPCMBuffer {
-        let rate = format.sampleRate
-        let duration: Double
-        switch e {
-        case .copy: duration = 0.03
-        case .paste: duration = 0.09
-        case .delete: duration = 0.22
-        }
-        let frames = AVAudioFrameCount(duration * rate)
-        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
-        buffer.frameLength = frames
-        let out = buffer.floatChannelData![0]
-        var phase = 0.0
-        var noiseLP = 0.0
-        var seed: UInt32 = 0x9E37_79B9
-        func noise() -> Double {
-            seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5
-            return Double(seed) / Double(UInt32.max) * 2 - 1
-        }
-        for i in 0..<Int(frames) {
-            let t = Double(i) / rate
-            let p = t / duration
-            var s = 0.0
-            switch e {
-            case .copy:
-                // Crisp tick: a 3.2 kHz ping with a very fast decay plus a tiny noise transient.
-                phase += 2 * .pi * 3200 / rate
-                s = sin(phase) * exp(-t * 180) * 0.55 + noise() * exp(-t * 900) * 0.25
-            case .paste:
-                // Soft pop: sine sweeping 820 → 380 Hz, gentle attack, rounded decay.
-                let f = 820 - 440 * min(1, p * 1.6)
-                phase += 2 * .pi * f / rate
-                let attack = min(1, t / 0.004)
-                s = sin(phase) * attack * exp(-t * 38) * 0.6
-            case .delete:
-                // Airy whoosh: low-passed noise under a rise-and-fall envelope, with a faint falling tone.
-                noiseLP += (noise() - noiseLP) * (0.08 + 0.12 * (1 - p))
-                let env = sin(.pi * min(1, p * 1.15)) * (1 - p * 0.4)
-                phase += 2 * .pi * (420 - 260 * p) / rate
-                s = (noiseLP * 1.6 + sin(phase) * 0.12) * env * 0.5
-            }
-            // Short fade at the end so nothing clicks when the buffer stops.
-            let tail = min(1, (1 - p) / 0.08)
-            out[i] = Float(max(-1, min(1, s * tail)))
-        }
-        return buffer
     }
 }

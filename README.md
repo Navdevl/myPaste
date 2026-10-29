@@ -64,7 +64,9 @@ after the sensitive TTL unless pinned, and existing history is re-scanned at lau
 
 Maccy: Settings → Backup → "Import Pins from Maccy" copies Maccy's pinned items onto a "Maccy" pinboard.
 
-Sounds: Settings → Appearance → Sounds (copy / paste / delete clicks, volume, per-event switches).
+Sounds: Settings → Appearance → Sounds: per event, pick from the built-in pack, choose your own audio file,
+preview, set volume. The pack is synthesized by `scripts/make-sounds.swift` (re-run it to regenerate
+`Resources/Sounds`); no third-party audio is bundled.
 
 Backup: Settings → Backup exports a `.mypaste` zip of pinboards (optionally history). Sensitive items are
 never exported. Import merges pinboards by name and items by content.

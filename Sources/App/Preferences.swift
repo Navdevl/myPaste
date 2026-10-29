@@ -46,6 +46,9 @@ final class Preferences: ObservableObject {
     @Published var soundCopy: Bool { didSet { d.set(soundCopy, forKey: "soundCopy") } }
     @Published var soundPaste: Bool { didSet { d.set(soundPaste, forKey: "soundPaste") } }
     @Published var soundDelete: Bool { didSet { d.set(soundDelete, forKey: "soundDelete") } }
+    @Published var soundCopyChoice: String { didSet { d.set(soundCopyChoice, forKey: "soundCopyChoice") } }
+    @Published var soundPasteChoice: String { didSet { d.set(soundPasteChoice, forKey: "soundPasteChoice") } }
+    @Published var soundDeleteChoice: String { didSet { d.set(soundDeleteChoice, forKey: "soundDeleteChoice") } }
 
     var retention: RetentionPolicy { RetentionPolicy(maxItems: maxItems, maxDays: maxDays) }
     var sensitiveTTL: TimeInterval { TimeInterval(sensitiveMinutes * 60) }
@@ -60,6 +63,7 @@ final class Preferences: ObservableObject {
             "doubleCtrlInPanel": true, "doubleCtrlGlobal": true, "hotkeyCyclesTabs": true, "pasteStackEnabled": false,
             // UI test runs stay silent; everyone else gets sounds at 40%.
             "soundsEnabled": !UITest.enabled, "soundVolume": 0.4, "soundCopy": true, "soundPaste": true, "soundDelete": true,
+            "soundCopyChoice": "wood-knock", "soundPasteChoice": "soft-pop", "soundDeleteChoice": "whoosh",
         ])
         maxItems = d.integer(forKey: "maxItems")
         maxDays = d.integer(forKey: "maxDays")
@@ -84,5 +88,8 @@ final class Preferences: ObservableObject {
         soundCopy = d.bool(forKey: "soundCopy")
         soundPaste = d.bool(forKey: "soundPaste")
         soundDelete = d.bool(forKey: "soundDelete")
+        soundCopyChoice = d.string(forKey: "soundCopyChoice") ?? "wood-knock"
+        soundPasteChoice = d.string(forKey: "soundPasteChoice") ?? "soft-pop"
+        soundDeleteChoice = d.string(forKey: "soundDeleteChoice") ?? "whoosh"
     }
 }

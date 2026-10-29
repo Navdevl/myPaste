@@ -249,7 +249,8 @@ func runAll() async {
     let config = NSWorkspace.OpenConfiguration()
     config.environment = ["MYPASTE_UITEST": "1", "MYPASTE_DATA_DIR": dataDir.path,
                           "MYPASTE_UITEST_SAVE": exportURL.path, "MYPASTE_UITEST_OPEN": exportURL.path,
-                          "MYPASTE_UITEST_MACCY": maccyStore.path]
+                          "MYPASTE_UITEST_MACCY": maccyStore.path,
+                          "MYPASTE_UITEST_SOUNDFILE": appBundle.appendingPathComponent("Contents/Resources/Sounds/chime.wav").path]
     config.arguments = [] // the app uses a wiped "local.mypaste.uitest" defaults domain in test mode
     config.createsNewApplicationInstance = true
     config.activates = false
@@ -459,17 +460,27 @@ func runAll() async {
         check(await waitFor(3) { elements("backup.status").contains { text(of: $0).contains("2 already here") } }, "re-run imports nothing new")
     }
 
-    await test("Settings → Appearance: sounds switch and Play buttons") {
+    await test("Settings → Appearance: sound pack, Play buttons and a custom file") {
+        let bundled = (try? FileManager.default.contentsOfDirectory(atPath: appBundle.appendingPathComponent("Contents/Resources/Sounds").path)) ?? []
+        check(bundled.filter { $0.hasSuffix(".wav") }.count == 15, "15 sounds bundled (got \(bundled.count))")
         post("local.mypaste.uitest.settings", "appearance")
         guard let toggle = await element("appearance.sounds", timeout: 5) else { check(false, "sounds switch found"); return }
         check(toggle.press(), "sounds switched on")
-        await sleep(0.5)
-        let played = elements("appearance.sounds").count == 1 // still present, pane re-rendered with sound rows
-        check(played, "sounds pane rendered")
-        await copy("[uitest] sound on copy") // plays the copy click through the real path
+        for effect in ["copy", "paste", "delete"] {
+            guard let play = await element("appearance.sound.\(effect).play", timeout: 3) else { check(false, "\(effect) Play button"); continue }
+            check(play.press(), "\(effect) Play pressed")
+            await sleep(0.3)
+        }
+        guard let choose = await element("appearance.sound.copy.choose") else { check(false, "copy Choose… button"); return }
+        check(choose.press(), "Choose… pressed")
+        let custom = dataDir.appendingPathComponent("sounds/custom-copy.wav")
+        check(await waitFor(3) { FileManager.default.fileExists(atPath: custom.path) }, "custom file copied into the data folder")
+        check(await waitFor(3) { elements("appearance.sound.copy.menu").contains { text(of: $0).contains("chime.wav") } },
+              "copy menu now shows the custom file (got \(elements("appearance.sound.copy.menu").map { text(of: $0) }))")
+        await copy("[uitest] sound on copy") // plays the chosen sound through the real capture path
         await sleep(0.5)
         let log = (try? String(contentsOf: dataDir.appendingPathComponent("logs/myPaste.log"), encoding: .utf8)) ?? ""
-        check(!log.contains("Audio engine failed"), "audio engine started without errors")
+        check(!log.contains("Can't play sound") && !log.contains("Custom sound rejected"), "no playback errors in the log")
         check(!launched.isTerminated, "app still running after playing sounds")
     }
 

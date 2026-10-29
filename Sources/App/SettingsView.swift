@@ -334,13 +334,7 @@ private struct AppearancePane: View {
                 }
                 ForEach(SoundFX.Effect.allCases, id: \.self) { effect in
                     Divider()
-                    Row(title: effect.label) {
-                        HStack(spacing: 10) {
-                            Button { SoundFX.shared.play(effect, force: true) } label: { Image(systemName: "play.circle") }
-                                .buttonStyle(.borderless).help("Play")
-                            Toggle("", isOn: binding(for: effect)).toggleStyle(.switch).labelsHidden()
-                        }
-                    }
+                    SoundRow(effect: effect, prefs: prefs, enabled: binding(for: effect))
                 }
             }
         }
@@ -373,6 +367,70 @@ private struct AppearancePane: View {
     private func toggle(_ title: String, _ detail: String, _ on: Binding<Bool>, _ id: String) -> some View {
         Row(title: title, detail: detail) {
             Toggle("", isOn: on).toggleStyle(.switch).labelsHidden().accessibilityIdentifier(id)
+        }
+    }
+}
+
+/// One event's sound: built-in pack menu (designed-for sounds first), custom file, preview, on/off.
+private struct SoundRow: View {
+    let effect: SoundFX.Effect
+    @ObservedObject var prefs: Preferences
+    @Binding var enabled: Bool
+    @State private var error: String?
+
+    private var selection: Binding<String> {
+        Binding(get: { SoundFX.shared.selection(for: effect) },
+                set: { SoundFX.shared.setSelection($0, for: effect); SoundFX.shared.play(effect, force: true) })
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 10) {
+                Text(effect.label)
+                Spacer(minLength: 12)
+                Picker("", selection: selection) {
+                    Section("Made for \(effect.label.lowercased())") {
+                        ForEach(SoundFX.builtIns.filter { $0.suits == effect }) { Text($0.name).tag($0.id) }
+                    }
+                    Section("Other sounds") {
+                        ForEach(SoundFX.builtIns.filter { $0.suits != effect }) { Text($0.name).tag($0.id) }
+                    }
+                    if let name = SoundFX.shared.customName(for: effect), SoundFX.shared.customFile(for: effect) != nil {
+                        Section("Your file") { Text(name).tag(SoundFX.customID) }
+                    }
+                }
+                .labelsHidden().frame(width: 190)
+                .accessibilityIdentifier("appearance.sound.\(effect.rawValue).menu")
+                Button("Choose…") { choose() }
+                    .accessibilityIdentifier("appearance.sound.\(effect.rawValue).choose")
+                Button { SoundFX.shared.play(effect, force: true) } label: { Image(systemName: "play.circle.fill").font(.title3) }
+                    .buttonStyle(.borderless).help("Play")
+                    .accessibilityIdentifier("appearance.sound.\(effect.rawValue).play")
+                Toggle("", isOn: $enabled).toggleStyle(.switch).labelsHidden()
+            }
+            if let error { Text(error).font(.caption).foregroundStyle(.red) }
+        }
+    }
+
+    private func choose() {
+        let file: URL
+        if let testFile = UITest.soundFile {
+            file = testFile
+        } else {
+            let panel = NSOpenPanel()
+            panel.allowedContentTypes = [.audio]
+            panel.message = "Choose a short sound for \(effect.label.lowercased()) (under a second works best)"
+            guard panel.runModal() == .OK, let picked = panel.url else { return }
+            file = picked
+        }
+        do {
+            try SoundFX.shared.installCustom(file, for: effect)
+            error = nil
+            prefs.objectWillChange.send()
+            SoundFX.shared.play(effect, force: true)
+        } catch {
+            self.error = "Couldn't use that file: \(error.localizedDescription)"
+            AppLog.error("Custom sound rejected", error)
         }
     }
 }

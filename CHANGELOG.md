@@ -2,6 +2,15 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
+## 1.4.0 (2026-10-29)
+
+- New sound pack: 15 WAVs (48 kHz/24-bit) rendered by `scripts/make-sounds.swift` (modal wood/glass,
+  filtered noise, pitch-enveloped drops, small room reverb), loudness-matched to about -20 dBFS RMS.
+  Copy: Wood Knock (new default), Soft Key, Glass Tick, Paper Snap, Bubble, Marimba, Classic Tick.
+  Paste: Soft Pop, Water Drop, Thock, Chime. Delete: Whoosh, Crumple, Swipe, Soft Thud.
+- Settings → Appearance → Sounds: pick any sound per event (auditions on selection), Play buttons, or
+  "Choose…" your own audio file (copied into myPaste's data folder).
+
 ## 1.3.0 (2026-10-29)
 
 - Import pins from Maccy (Settings → Backup): Maccy's pinned items land on a "Maccy" pinboard with their
