@@ -345,6 +345,8 @@ private struct AppearancePane: View {
         }
         Card(title: "Pinboards") {
             toggle("Open shortcut cycles boards", "Pressing ⇧⌘V again while the strip is open moves to the next board", $prefs.hotkeyCyclesTabs, "appearance.cycle")
+            Divider()
+            toggle("Search everywhere", "Searching from a pinboard also finds History and other boards. Off: search stays inside the open tab", $prefs.searchEverywhere, "appearance.searchEverywhere")
             Text("Also: ⌃Tab / ⌃⇧Tab next and previous board · hold ⌥ to see ⌥0–9 board numbers.")
                 .font(.caption).foregroundStyle(.secondary)
         }

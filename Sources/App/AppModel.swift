@@ -143,6 +143,9 @@ final class AppModel: ObservableObject {
 
     var query: SearchQuery { SearchQuery.parse(search) }
 
+    /// A search on a pinboard tab widens to History + every board (Settings → Appearance → Pinboards).
+    var searchesEverywhere: Bool { prefs.searchEverywhere && !query.isEmpty }
+
     func recompute(resetSelection: Bool) {
         Perf.measure("recompute") { recomputeNow(resetSelection: resetSelection) }
     }
@@ -150,7 +153,7 @@ final class AppModel: ObservableObject {
     private func recomputeNow(resetSelection: Bool) {
         let pending = Set(pendingDeletes)
         var list = items.filter { !pending.contains($0.id) }
-        if case .board(let id) = tab { list = list.filter { $0.pinboardIDs.contains(id) } }
+        if case .board(let id) = tab, !searchesEverywhere { list = list.filter { $0.pinboardIDs.contains(id) } }
         switch kindFilter {
         case .all: break
         case .kind(let k): list = list.filter { $0.kind == k }

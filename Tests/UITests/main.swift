@@ -393,6 +393,18 @@ func runAll() async {
         await closePanel()
     }
 
+    await test("searching from a pinboard finds unpinned History items too") {
+        await copy("[uitest] zebra unpinned")
+        await focusTarget()
+        check(await openPanel(), "strip is visible")
+        await key(18, .maskAlternate) // ⌥1 → first pinboard
+        check(await waitFor(2) { activeTab() != "History" && activeTab() != nil }, "on a pinboard (got \(activeTab() ?? "nil"))")
+        systemEvents(["keystroke \"zebra\""])
+        check(await element("searchScope", timeout: 2) != nil, "\"All boards\" badge shown")
+        await key(K.ret)
+        check(await waitFor { textView.string == "[uitest] zebra unpinned" }, "↩ pasted the History match (got \"\(textView.string)\")")
+    }
+
     await test("double-⌃ in the strip opens the pin picker; 1 pins to the first board") {
         await copy("[uitest] quick pin in strip")
         check(await openPanel(), "strip is visible")

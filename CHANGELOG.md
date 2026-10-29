@@ -2,6 +2,10 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
+## 1.4.1 (2026-10-29)
+
+- Search from a pinboard tab now covers History and every pinboard, not just the open board. An "All boards" badge shows next to the search field while that's happening. Turn it off in Settings → Appearance → Pinboards → Search everywhere.
+
 ## 1.4.0 (2026-10-29)
 
 - New sound pack: 15 WAVs (48 kHz/24-bit) rendered by `scripts/make-sounds.swift` (modal wood/glass,

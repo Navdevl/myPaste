@@ -70,6 +70,13 @@ struct StripView: View {
                 TextField("Search · /img /link /code · @app · #tag", text: $model.search)
                     .textFieldStyle(.plain).font(.system(size: 14)).focused($searchFocused)
                     .frame(width: 280)
+                if case .board = model.tab, model.searchesEverywhere {
+                    Text("All boards").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(.quaternary, in: Capsule())
+                        .help("Searching History and every pinboard. Turn off in Settings → Appearance → Pinboards")
+                        .accessibilityIdentifier("searchScope")
+                }
                 if !model.search.isEmpty {
                     Button { model.search = "" } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.plain).foregroundStyle(.secondary)

@@ -47,7 +47,7 @@ come from a SwiftPM resource bundle it looks for at the .app root, where a signe
 | ⌘N | New pinboard |
 | ⇧⌘C (global) | Paste Stack, if enabled in Settings → Shortcuts (off by default): copy several things, then each ⌘V pastes the next |
 
-Search: words match text, titles, file names, link titles and text in images. `/img` `/link` `/code` `/text`
+Search covers History and every pinboard, whichever tab is open (Settings → Appearance → Pinboards → Search everywhere). Words match text, titles, file names, link titles and text in images. `/img` `/link` `/code` `/text`
 `/rich` `/file` `/color` `/email` `/phone` `/secret` filter by type (prefixes work: `/im`), `@slack` filters by
 source app, `#tag` by tag. Tokens combine.
 

@@ -39,6 +39,8 @@ final class Preferences: ObservableObject {
     @Published var doubleCtrlInPanel: Bool { didSet { d.set(doubleCtrlInPanel, forKey: "doubleCtrlInPanel") } }
     @Published var doubleCtrlGlobal: Bool { didSet { d.set(doubleCtrlGlobal, forKey: "doubleCtrlGlobal") } }
     @Published var hotkeyCyclesTabs: Bool { didSet { d.set(hotkeyCyclesTabs, forKey: "hotkeyCyclesTabs") } }
+    /// On: typing a search looks through History and every pinboard, whichever tab is open.
+    @Published var searchEverywhere: Bool { didSet { d.set(searchEverywhere, forKey: "searchEverywhere") } }
     /// Off by default: ⇧⌘C stays free for other apps until you opt in.
     @Published var pasteStackEnabled: Bool { didSet { d.set(pasteStackEnabled, forKey: "pasteStackEnabled") } }
     @Published var soundsEnabled: Bool { didSet { d.set(soundsEnabled, forKey: "soundsEnabled") } }
@@ -60,7 +62,7 @@ final class Preferences: ObservableObject {
             "linkPreviews": true, "ocr": true, "directPaste": true, "capturePaused": false,
             "smartActions": true, "jiraBaseURL": "https://example.atlassian.net",
             "glideSelection": true, "sweepSelection": true, "parallax": true, "haptics": true,
-            "doubleCtrlInPanel": true, "doubleCtrlGlobal": true, "hotkeyCyclesTabs": true, "pasteStackEnabled": false,
+            "doubleCtrlInPanel": true, "doubleCtrlGlobal": true, "hotkeyCyclesTabs": true, "searchEverywhere": true, "pasteStackEnabled": false,
             // UI test runs stay silent; everyone else gets sounds at 40%.
             "soundsEnabled": !UITest.enabled, "soundVolume": 0.4, "soundCopy": true, "soundPaste": true, "soundDelete": true,
             "soundCopyChoice": "wood-knock", "soundPasteChoice": "soft-pop", "soundDeleteChoice": "whoosh",
@@ -82,6 +84,7 @@ final class Preferences: ObservableObject {
         doubleCtrlInPanel = d.bool(forKey: "doubleCtrlInPanel")
         doubleCtrlGlobal = d.bool(forKey: "doubleCtrlGlobal")
         hotkeyCyclesTabs = d.bool(forKey: "hotkeyCyclesTabs")
+        searchEverywhere = d.bool(forKey: "searchEverywhere")
         pasteStackEnabled = d.bool(forKey: "pasteStackEnabled")
         soundsEnabled = d.bool(forKey: "soundsEnabled")
         soundVolume = d.double(forKey: "soundVolume")
