@@ -82,6 +82,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             do { try self.store.prune(self.prefs.retention) } catch { AppLog.error("Prune failed", error) }
         }
         enrichment.backfill()
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 5) { [store] in
+            guard let store else { return }
+            do {
+                let r = try store.sweepOrphanBlobs()
+                if r.files > 0 { AppLog.info("Swept \(r.files) orphaned blob files (\(r.bytes) bytes)") }
+            } catch { AppLog.error("Blob sweep failed", error) }
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
             guard let self else { return }
             Visuals.shared.prewarm(self.model.items, store: self.store)

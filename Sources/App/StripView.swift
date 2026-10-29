@@ -361,10 +361,14 @@ struct QuickLookView: View {
     @ViewBuilder private var content: some View {
         switch item.kind {
         case .image:
-            AsyncThumbnail(item: item, store: model.store, maxSide: 2000) { img in
-                Image(nsImage: img).resizable().aspectRatio(contentMode: .fit).padding(16)
-            } placeholder: {
-                ProgressView()
+            ZStack(alignment: .bottomTrailing) {
+                AsyncThumbnail(item: item, store: model.store, maxSide: 8192) { img in
+                    ZoomableImage(image: img).padding(8)
+                } placeholder: {
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                Text("Pinch to zoom · double-click for 100%").font(.caption2).foregroundStyle(.secondary)
+                    .padding(.horizontal, 8).padding(.vertical, 4).glassSurface(cornerRadius: 8).padding(12)
             }
         case .color:
             RoundedRectangle(cornerRadius: 12).fill(Color(hex: item.text ?? "")).padding(24)
@@ -391,7 +395,11 @@ struct QuickLookView: View {
                     if item.kind == .richText {
                         AsyncRichText(item: item, store: model.store, limit: 50_000) { Text(item.text ?? "") }
                     } else {
-                        Text(item.text ?? "").font(item.kind == .code ? .system(size: 12.5, design: .monospaced) : .system(size: 13.5))
+                        if item.kind == .code {
+                            Text(CodeStyle.highlighted(item.text ?? ""))
+                        } else {
+                            Text(item.text ?? "").font(.system(size: 13.5))
+                        }
                     }
                 }
                 .textSelection(.enabled)

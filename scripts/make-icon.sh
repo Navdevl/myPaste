@@ -4,7 +4,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 mkdir -p build && make -s overlay
-swiftc -vfsoverlay build/clt-overlay.yaml scripts/make-icon.swift -o "$TMP/make-icon"
+OVERLAY=(); [ -f /Library/Developer/CommandLineTools/usr/include/swift/module.modulemap ] && OVERLAY=(-vfsoverlay build/clt-overlay.yaml)
+swiftc "${OVERLAY[@]}" scripts/make-icon.swift -o "$TMP/make-icon"
 "$TMP/make-icon" "$TMP/icon_1024.png"
 SET="$TMP/AppIcon.iconset"; mkdir "$SET"
 for s in 16 32 128 256 512; do

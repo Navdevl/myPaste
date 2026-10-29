@@ -370,6 +370,28 @@ public final class ClipStore {
 
     // MARK: Blobs
 
+    /// Deletes blob files whose item no longer exists (left behind by crashes, external edits, old builds).
+    /// Files modified in the last minute are skipped so an in-flight capture isn't raced.
+    @discardableResult
+    public func sweepOrphanBlobs(now: Date = Date()) throws -> (files: Int, bytes: Int64) {
+        let known = Set(try dbQueue.read { db in try String.fetchAll(db, sql: "SELECT uuid FROM item") })
+        let fm = FileManager.default
+        let urls = try fm.contentsOfDirectory(at: blobDir, includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey])
+        var files = 0
+        var bytes: Int64 = 0
+        for url in urls {
+            let uuid = String(url.lastPathComponent.prefix { $0 != "." })
+            guard !known.contains(uuid) else { continue }
+            let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+            if let mod = values?.contentModificationDate, now.timeIntervalSince(mod) < 60 { continue }
+            if (try? fm.removeItem(at: url)) != nil {
+                files += 1
+                bytes += Int64(values?.fileSize ?? 0)
+            }
+        }
+        return (files, bytes)
+    }
+
     public func blobURL(_ uuid: String, _ ext: String) -> URL {
         blobDir.appendingPathComponent("\(uuid).\(ext)")
     }

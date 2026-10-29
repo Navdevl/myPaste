@@ -274,3 +274,90 @@ struct AsyncRichText<Fallback: View>: View {
         }
     }
 }
+
+/// Syntax-coloured code for Quick Look; colours are system colours so both appearances work.
+enum CodeStyle {
+    static func highlighted(_ code: String, size: CGFloat = 12.5) -> AttributedString {
+        let text = String(code.prefix(200_000))
+        let attr = NSMutableAttributedString(string: text, attributes: [
+            .font: NSFont.monospacedSystemFont(ofSize: size, weight: .regular),
+            .foregroundColor: NSColor.labelColor,
+        ])
+        for t in SyntaxHighlighter.tokens(in: text) {
+            let color: NSColor
+            switch t.kind {
+            case .comment: color = .systemGray
+            case .string: color = .systemRed
+            case .number: color = .systemPurple
+            case .keyword: color = .systemPink
+            case .key: color = .systemTeal
+            }
+            attr.addAttribute(.foregroundColor, value: color, range: t.range)
+            if t.kind == .keyword {
+                attr.addAttribute(.font, value: NSFont.monospacedSystemFont(ofSize: size, weight: .semibold), range: t.range)
+            }
+        }
+        return (try? AttributedString(attr, including: \.appKit)) ?? AttributedString(text)
+    }
+}
+
+/// Pinch / ⌥-scroll to zoom, scroll to pan, double-click toggles fit ↔ 100%. Native NSScrollView magnification.
+struct ZoomableImage: NSViewRepresentable {
+    let image: NSImage
+
+    final class Coordinator: NSObject {
+        weak var scroll: NSScrollView?
+        var fitMagnification: CGFloat = 1
+
+        @objc func toggle(_ g: NSClickGestureRecognizer) {
+            guard let scroll else { return }
+            let point = g.location(in: scroll.documentView)
+            let target: CGFloat = abs(scroll.magnification - fitMagnification) < 0.01 ? 1 : fitMagnification
+            scroll.animator().setMagnification(target, centeredAt: point)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scroll = NSScrollView()
+        scroll.allowsMagnification = true
+        scroll.minMagnification = 0.05
+        scroll.maxMagnification = 8
+        scroll.hasVerticalScroller = true
+        scroll.hasHorizontalScroller = true
+        scroll.autohidesScrollers = true
+        scroll.drawsBackground = false
+        let view = NSImageView()
+        view.image = image
+        view.imageScaling = .scaleProportionallyUpOrDown
+        view.frame = NSRect(origin: .zero, size: pixelSize)
+        scroll.documentView = view
+        let dbl = NSClickGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.toggle(_:)))
+        dbl.numberOfClicksRequired = 2
+        view.addGestureRecognizer(dbl)
+        scroll.setAccessibilityIdentifier("ql.image")
+        context.coordinator.scroll = scroll
+        DispatchQueue.main.async { fit(scroll, context.coordinator) }
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {}
+
+    /// Point size at 100% = one image pixel per screen pixel.
+    private var pixelSize: NSSize {
+        let rep = image.representations.first
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let w = CGFloat(rep?.pixelsWide ?? Int(image.size.width)) / scale
+        let h = CGFloat(rep?.pixelsHigh ?? Int(image.size.height)) / scale
+        return NSSize(width: max(w, 1), height: max(h, 1))
+    }
+
+    private func fit(_ scroll: NSScrollView, _ c: Coordinator) {
+        let bounds = scroll.contentSize
+        let size = pixelSize
+        let m = min(1, min(bounds.width / size.width, bounds.height / size.height))
+        c.fitMagnification = m
+        scroll.magnification = m
+    }
+}

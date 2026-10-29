@@ -27,7 +27,7 @@ enum AppLog {
                 raise(s)
             }
         }
-        info("Launched \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")")
+        info("Launched \(AppVersion.display)")
     }
 
     static func info(_ message: String) { append("INFO", message) }
@@ -92,4 +92,10 @@ extension ISO8601DateFormatter {
         f.timeZone = TimeZone(identifier: "Asia/Kolkata")
         return f
     }()
+}
+
+enum AppVersion {
+    static var short: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?" }
+    static var build: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?" }
+    static var display: String { "\(short) (\(build))" }
 }

@@ -175,6 +175,25 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
         #expect(try store.rescanSensitive(ttl: 600, now: t0) == 0)
     }
 
+    @Test func sweepsOrphanBlobs() throws {
+        let store = try ClipStore(directory: dir)
+        let keep = try store.insert(NewCapture(kind: .image, text: nil, imagePNG: Data([1]), imageWidth: 1, imageHeight: 1, contentHash: "k"), sensitiveTTL: 600)
+        let keepItem = try store.item(id: keep)!
+        let orphan = store.blobURL(UUID().uuidString, "link.png")
+        try Data([2]).write(to: orphan)
+        let fresh = store.blobURL(UUID().uuidString, "png")
+        try Data([3]).write(to: fresh)
+        let later = Date().addingTimeInterval(120)
+        // Backdate the orphan; the "fresh" file is still within the 60 s grace window relative to `now`.
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-300)], ofItemAtPath: orphan.path)
+        let r = try store.sweepOrphanBlobs(now: Date())
+        #expect(r.files == 1)
+        #expect(!FileManager.default.fileExists(atPath: orphan.path))
+        #expect(FileManager.default.fileExists(atPath: fresh.path))
+        #expect(store.blob(keepItem, "png") == Data([1]))
+        #expect(try store.sweepOrphanBlobs(now: later).files == 1) // fresh one is past the grace window now
+    }
+
     @Test func reopenIsIdempotent() throws {
         _ = try text(try ClipStore(directory: dir), "persisted", hash: "x")
         #expect(try ClipStore(directory: dir).allItems().count == 1)
@@ -407,5 +426,31 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
         let inn = try BackupArchive.importArchive(archive, into: dst)
         #expect(inn.items == 1)
         #expect(try dst.allItems().first?.isPinned == true)
+    }
+}
+
+@Suite struct SyntaxHighlighterTests {
+    private func kinds(_ code: String) -> [(String, SyntaxHighlighter.Kind)] {
+        let ns = code as NSString
+        return SyntaxHighlighter.tokens(in: code).map { (ns.substring(with: $0.range), $0.kind) }
+    }
+
+    @Test func swiftish() {
+        let t = kinds("let n = 42 // answer\nreturn \"let\"")
+        #expect(t.contains { $0 == ("let", .keyword) })
+        #expect(t.contains { $0 == ("42", .number) })
+        #expect(t.contains { $0 == ("// answer", .comment) })
+        #expect(t.contains { $0 == ("\"let\"", .string) })   // keyword inside a string stays a string
+        #expect(!t.contains { $0.0 == "n" })
+    }
+
+    @Test func sqlAndJSON() {
+        let sql = kinds("SELECT id FROM users -- note")
+        #expect(sql.contains { $0 == ("SELECT", .keyword) } && sql.contains { $0 == ("FROM", .keyword) })
+        #expect(sql.contains { $0 == ("-- note", .comment) })
+        let json = kinds("{\"amount\": 100, \"ok\": true}")
+        #expect(json.contains { $0 == ("\"amount\"", .key) })
+        #expect(json.contains { $0 == ("true", .keyword) })
+        #expect(json.contains { $0 == ("100", .number) })
     }
 }

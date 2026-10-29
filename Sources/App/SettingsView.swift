@@ -557,7 +557,7 @@ private struct AboutPane: View {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("myPaste").font(.title2.bold())
-                    Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") · local-only clipboard manager")
+                    Text("Version \(AppVersion.display) · local-only clipboard manager")
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
