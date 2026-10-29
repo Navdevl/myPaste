@@ -2,6 +2,13 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
+## 1.2.1 (2026-10-29)
+
+- Paste Stack is now optional and off by default (Settings → Shortcuts). While off, ⇧⌘C isn't registered,
+  its menu entries are hidden, and it's ignored by the shortcut-conflict check.
+- Shortcuts pane re-checks for clashing apps when Paste Stack is switched on.
+- UI tests run with their own wiped settings domain, so a test run never changes your preferences.
+
 ## 1.2.0 (2026-10-29)
 
 - Quick pin: double-tap ⌃ in the strip pins the selected card; anywhere else it pins your latest copy.

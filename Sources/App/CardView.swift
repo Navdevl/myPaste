@@ -357,7 +357,7 @@ struct CardMenu: View {
         Button("Copy") { model.onCopy?(item, false) }
         Button("Copy as Plain Text") { model.onCopy?(item, true) }
         if item.kind == .link || item.kind == .file { Button(item.kind == .link ? "Open Link" : "Show in Finder") { model.onOpen?(item) } }
-        Button("Add to Paste Stack") { model.onAddToStack?(item) }
+        if model.prefs.pasteStackEnabled { Button("Add to Paste Stack") { model.onAddToStack?(item) } }
         Divider()
         Menu("Pin to") {
             ForEach(model.pinboards) { board in

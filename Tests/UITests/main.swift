@@ -228,7 +228,7 @@ func runAll() async {
     let config = NSWorkspace.OpenConfiguration()
     config.environment = ["MYPASTE_UITEST": "1", "MYPASTE_DATA_DIR": dataDir.path,
                           "MYPASTE_UITEST_SAVE": exportURL.path, "MYPASTE_UITEST_OPEN": exportURL.path]
-    config.arguments = ["-didOnboard", "YES", "-smartActions", "YES", "-directPaste", "YES"]
+    config.arguments = [] // the app uses a wiped "local.mypaste.uitest" defaults domain in test mode
     config.createsNewApplicationInstance = true
     config.activates = false
     guard let launched = try? await NSWorkspace.shared.openApplication(at: appBundle, configuration: config) else {
@@ -431,7 +431,16 @@ func runAll() async {
         cfg.createsNewApplicationInstance = true
         let fakeApp = try await NSWorkspace.shared.openApplication(at: fake, configuration: cfg)
         await sleep(1)
+        // Paste Stack is off by default: ⇧⌘C must do nothing and can't clash with anything.
+        await focusTarget()
+        await key(8, [.maskCommand, .maskShift])
+        await sleep(0.6)
+        check(app.windows.allSatisfy { $0.identifier != "pastestack.hud" }, "⇧⌘C ignored while Paste Stack is off")
         post("local.mypaste.uitest.settings", "shortcuts")
+        guard let toggle = await element("shortcuts.pasteStack", timeout: 5) else { check(false, "Paste Stack switch found"); fakeApp.terminate(); return }
+        check(elements("conflict.quit").isEmpty, "no conflict reported while Paste Stack is off")
+        check(toggle.press(), "Paste Stack switched on")
+        post("local.mypaste.uitest.settings", "shortcuts") // pane re-reads the running apps on appear
         guard let quit = await element("conflict.quit", timeout: 5) else { check(false, "conflict shown with Quit button"); fakeApp.terminate(); return }
         check(quit.press(), "Quit pressed")
         check(await waitFor(5) { fakeApp.isTerminated }, "clashing app terminated")

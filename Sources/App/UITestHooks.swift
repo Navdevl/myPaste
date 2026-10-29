@@ -24,3 +24,16 @@ final class SettingsRouter: ObservableObject {
     static let shared = SettingsRouter()
     @Published var pane: SettingsView.Pane = .general
 }
+
+/// Where myPaste keeps its settings. UI tests get a separate, freshly wiped domain so a test run
+/// (which flips switches in Settings) never changes the user's real preferences.
+enum AppDefaults {
+    static let uiTestSuite = "local.mypaste.uitest"
+
+    static let store: UserDefaults = {
+        guard UITest.enabled, let suite = UserDefaults(suiteName: uiTestSuite) else { return .standard }
+        suite.removePersistentDomain(forName: uiTestSuite)
+        suite.set(true, forKey: "didOnboard")
+        return suite
+    }()
+}

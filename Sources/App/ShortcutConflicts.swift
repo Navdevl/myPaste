@@ -23,7 +23,7 @@ enum ShortcutConflicts {
     static func current() -> [Conflict] {
         let ours: [(KeyboardShortcuts.Name, KeyboardShortcuts.Shortcut?)] = [
             (.openPanel, KeyboardShortcuts.getShortcut(for: .openPanel)),
-            (.pasteStack, KeyboardShortcuts.getShortcut(for: .pasteStack)),
+            (.pasteStack, Preferences.shared.pasteStackEnabled ? KeyboardShortcuts.getShortcut(for: .pasteStack) : nil),
         ]
         var out: [Conflict] = []
         for app in NSWorkspace.shared.runningApplications {
@@ -44,7 +44,7 @@ enum ShortcutConflicts {
 
     /// One alert per launch at most, and never again for an app the user said to ignore.
     static func warnIfNeeded(openSettings: @escaping () -> Void) {
-        let ignored = Set(UserDefaults.standard.stringArray(forKey: "ignoredConflicts") ?? [])
+        let ignored = Set(AppDefaults.store.stringArray(forKey: "ignoredConflicts") ?? [])
         guard let c = current().first(where: { !ignored.contains($0.id) }) else { return }
         let alert = NSAlert()
         alert.messageText = "\(c.name) may be using \(KeyboardShortcuts.getShortcut(for: c.shortcut)?.description ?? "")"
@@ -56,7 +56,7 @@ enum ShortcutConflicts {
         switch alert.runModal() {
         case .alertFirstButtonReturn: c.app.terminate()
         case .alertSecondButtonReturn: openSettings()
-        default: UserDefaults.standard.set(Array(ignored) + [c.id], forKey: "ignoredConflicts")
+        default: AppDefaults.store.set(Array(ignored) + [c.id], forKey: "ignoredConflicts")
         }
     }
 }

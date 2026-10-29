@@ -75,7 +75,7 @@ struct SettingsView: View {
                     switch pane {
                     case .general: GeneralPane(prefs: prefs, model: model, onShowWelcome: onShowWelcome)
                     case .appearance: AppearancePane(prefs: prefs)
-                    case .shortcuts: ShortcutsPane()
+                    case .shortcuts: ShortcutsPane(prefs: prefs)
                     case .history: HistoryPane(prefs: prefs, model: model)
                     case .privacy: PrivacyPane(prefs: prefs)
                     case .pinboards: PinboardsPane(model: model)
@@ -347,6 +347,7 @@ private struct AppearancePane: View {
 // MARK: Shortcuts
 
 private struct ShortcutsPane: View {
+    @ObservedObject var prefs: Preferences
     @State private var conflicts = ShortcutConflicts.current()
 
     private let panelKeys: [(String, String)] = [
@@ -378,8 +379,20 @@ private struct ShortcutsPane: View {
         Card(title: "Global") {
             Row(title: "Open myPaste") { ShortcutRecorder(name: .openPanel) }
             Divider()
-            Row(title: "Paste Stack", detail: "Queue copies, then each ⌘V pastes the next") { ShortcutRecorder(name: .pasteStack) }
+            Row(title: "Paste Stack", detail: "Copy several things in order, then each ⌘V pastes the next one. Off by default.") {
+                Toggle("", isOn: $prefs.pasteStackEnabled).toggleStyle(.switch).labelsHidden()
+                    .accessibilityIdentifier("shortcuts.pasteStack")
+            }
+            if prefs.pasteStackEnabled {
+                Row(title: "Paste Stack shortcut") { ShortcutRecorder(name: .pasteStack) }
+            }
         }
+        Color.clear.frame(height: 0)
+            .onAppear { conflicts = ShortcutConflicts.current() }
+            .onChange(of: prefs.pasteStackEnabled) { _, _ in
+                // Enabling registers ⇧⌘C, which may now clash with a running clipboard app.
+                DispatchQueue.main.async { conflicts = ShortcutConflicts.current() }
+            }
         Card(title: "In the panel") {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), alignment: .leading)], alignment: .leading, spacing: 10) {
                 ForEach(panelKeys, id: \.0) { KeyChip(keys: $0.0, label: $0.1) }
@@ -687,6 +700,7 @@ struct ShortcutRecorder: View {
     private func start() {
         recording = true
         // Pause the existing binding so pressing the same combo records instead of firing it.
+        // (stop() re-enables only names that are switched on.)
         KeyboardShortcuts.disable(name)
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             if event.keyCode == 53 { stop(); return nil }
@@ -706,6 +720,6 @@ struct ShortcutRecorder: View {
         recording = false
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
-        KeyboardShortcuts.enable(name)
+        if name != .pasteStack || Preferences.shared.pasteStackEnabled { KeyboardShortcuts.enable(name) }
     }
 }

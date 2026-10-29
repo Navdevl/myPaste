@@ -12,7 +12,7 @@ extension KeyboardShortcuts.Name {
 /// User settings, persisted in UserDefaults.
 final class Preferences: ObservableObject {
     static let shared = Preferences()
-    private let d = UserDefaults.standard
+    private let d = AppDefaults.store
 
     /// Password managers and keychain tools: never record what they put on the clipboard.
     static let defaultExcluded = [
@@ -39,6 +39,8 @@ final class Preferences: ObservableObject {
     @Published var doubleCtrlInPanel: Bool { didSet { d.set(doubleCtrlInPanel, forKey: "doubleCtrlInPanel") } }
     @Published var doubleCtrlGlobal: Bool { didSet { d.set(doubleCtrlGlobal, forKey: "doubleCtrlGlobal") } }
     @Published var hotkeyCyclesTabs: Bool { didSet { d.set(hotkeyCyclesTabs, forKey: "hotkeyCyclesTabs") } }
+    /// Off by default: ⇧⌘C stays free for other apps until you opt in.
+    @Published var pasteStackEnabled: Bool { didSet { d.set(pasteStackEnabled, forKey: "pasteStackEnabled") } }
 
     var retention: RetentionPolicy { RetentionPolicy(maxItems: maxItems, maxDays: maxDays) }
     var sensitiveTTL: TimeInterval { TimeInterval(sensitiveMinutes * 60) }
@@ -50,7 +52,7 @@ final class Preferences: ObservableObject {
             "linkPreviews": true, "ocr": true, "directPaste": true, "capturePaused": false,
             "smartActions": true, "jiraBaseURL": "https://example.atlassian.net",
             "glideSelection": true, "sweepSelection": true, "parallax": true, "haptics": true,
-            "doubleCtrlInPanel": true, "doubleCtrlGlobal": true, "hotkeyCyclesTabs": true,
+            "doubleCtrlInPanel": true, "doubleCtrlGlobal": true, "hotkeyCyclesTabs": true, "pasteStackEnabled": false,
         ])
         maxItems = d.integer(forKey: "maxItems")
         maxDays = d.integer(forKey: "maxDays")
@@ -69,5 +71,6 @@ final class Preferences: ObservableObject {
         doubleCtrlInPanel = d.bool(forKey: "doubleCtrlInPanel")
         doubleCtrlGlobal = d.bool(forKey: "doubleCtrlGlobal")
         hotkeyCyclesTabs = d.bool(forKey: "hotkeyCyclesTabs")
+        pasteStackEnabled = d.bool(forKey: "pasteStackEnabled")
     }
 }

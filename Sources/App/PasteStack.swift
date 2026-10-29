@@ -75,6 +75,7 @@ final class PasteStack: ObservableObject {
             panel.ignoresMouseEvents = false
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
             panel.contentView = NSHostingView(rootView: StackHUD(stack: self))
+            panel.setAccessibilityIdentifier("pastestack.hud")
             hud = panel
         }
         guard let hud, let screen = NSScreen.main else { return }

@@ -45,7 +45,7 @@ come from a SwiftPM resource bundle it looks for at the .app root, where a signe
 | ⌘K | Actions: JSON/SQL formatting, text cleanup, case, URL cleanup, encode/decode, hashes, epoch ↔ IST |
 | ⌘R ⌘T ⌘E | Rename / tags / edit text |
 | ⌘N | New pinboard |
-| ⇧⌘C (global) | Start / end Paste Stack (each ⌘V pastes the next queued copy) |
+| ⇧⌘C (global) | Paste Stack, if enabled in Settings → Shortcuts (off by default): copy several things, then each ⌘V pastes the next |
 
 Search: words match text, titles, file names, link titles and text in images. `/img` `/link` `/code` `/text`
 `/rich` `/file` `/color` `/email` `/phone` `/secret` filter by type (prefixes work: `/im`), `@slack` filters by

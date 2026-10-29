@@ -104,7 +104,9 @@ struct OnboardingView: View {
             Text("Your shortcuts").font(.system(size: 24, weight: .bold))
             VStack(spacing: 10) {
                 HStack { Text("Open myPaste").frame(width: 140, alignment: .leading); ShortcutRecorder(name: .openPanel) }
-                HStack { Text("Paste Stack").frame(width: 140, alignment: .leading); ShortcutRecorder(name: .pasteStack) }
+                if Preferences.shared.pasteStackEnabled {
+                    HStack { Text("Paste Stack").frame(width: 140, alignment: .leading); ShortcutRecorder(name: .pasteStack) }
+                }
             }
             ForEach(conflicts) { c in
                 HStack(spacing: 8) {

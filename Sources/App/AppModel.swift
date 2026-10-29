@@ -312,8 +312,8 @@ final class AppModel: ObservableObject {
     // MARK: Pinning
 
     private var lastBoardID: Int64? {
-        get { (UserDefaults.standard.object(forKey: "lastPinboardID") as? NSNumber)?.int64Value }
-        set { UserDefaults.standard.set(newValue.map(NSNumber.init(value:)), forKey: "lastPinboardID") }
+        get { (AppDefaults.store.object(forKey: "lastPinboardID") as? NSNumber)?.int64Value }
+        set { AppDefaults.store.set(newValue.map(NSNumber.init(value:)), forKey: "lastPinboardID") }
     }
 
     func togglePin(_ item: ClipItem, board: Int64) {

@@ -74,7 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         doubleCtrl.onDoubleTap = { [weak self] in self?.doubleControl() }
         configureDoubleTap()
         prefsObserver = prefs.objectWillChange.sink { [weak self] _ in
-            DispatchQueue.main.async { self?.configureDoubleTap() }
+            DispatchQueue.main.async { self?.configureDoubleTap(); self?.configurePasteStack() }
         }
         registerHotKeys()
         setupStatusItem()
@@ -115,7 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 if let raw = n.object as? String, let pane = SettingsView.Pane(rawValue: raw) { SettingsRouter.shared.pane = pane }
                 self?.openSettings()
             }
-        } else if !UserDefaults.standard.bool(forKey: "didOnboard") {
+        } else if !AppDefaults.store.bool(forKey: "didOnboard") {
             // First run: guided onboarding (permission, shortcuts). Later runs: just warn about shortcut clashes.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.showWelcome() }
         } else {
@@ -127,8 +127,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Launch at login defaults to on, but only for the installed copy, not build/ or test runs.
         let installed = Bundle.main.bundlePath.hasPrefix("/Applications/")
             || Bundle.main.bundlePath.hasPrefix(NSHomeDirectory() + "/Applications/")
-        if installed, !UserDefaults.standard.bool(forKey: "didSetupLoginItem") {
-            UserDefaults.standard.set(true, forKey: "didSetupLoginItem")
+        if installed, !AppDefaults.store.bool(forKey: "didSetupLoginItem") {
+            AppDefaults.store.set(true, forKey: "didSetupLoginItem")
             try? SMAppService.mainApp.register()
         }
     }
@@ -215,7 +215,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         panel?.hide()
         if welcomeWindow == nil {
             let view = OnboardingView { [weak self] in
-                UserDefaults.standard.set(true, forKey: "didOnboard")
+                AppDefaults.store.set(true, forKey: "didOnboard")
                 self?.welcomeWindow?.close()
             }
             let window = NSWindow(contentViewController: NSHostingController(rootView: view))
@@ -246,6 +246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func registerHotKeys() {
         KeyboardShortcuts.onKeyDown(for: .openPanel) { [weak self] in self?.openHotkey() }
         KeyboardShortcuts.onKeyDown(for: .pasteStack) { [weak self] in self?.stack.toggle() }
+        configurePasteStack()
     }
 
     /// ⇧⌘V: opens the strip; pressed again while open it moves to the next tab (History → boards → History).
@@ -254,6 +255,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             model.switchTab(1)
         } else {
             panel.toggle()
+        }
+    }
+
+    /// Registers ⇧⌘C only while Paste Stack is enabled, and ends a running stack when it's switched off.
+    private func configurePasteStack() {
+        if prefs.pasteStackEnabled {
+            KeyboardShortcuts.enable(.pasteStack)
+        } else {
+            KeyboardShortcuts.disable(.pasteStack)
+            if stack?.isActive == true { stack.stop() }
         }
     }
 
@@ -298,6 +309,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         pauseItem.title = prefs.capturePaused ? "Resume Capture" : "Pause Capture"
         stackItem.title = stack.isActive ? "End Paste Stack" : "Start Paste Stack"
+        stackItem.isHidden = !prefs.pasteStackEnabled
         updateMenuShortcuts()
     }
 
