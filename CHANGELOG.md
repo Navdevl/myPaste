@@ -2,6 +2,12 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
+## 1.5.0 (2026-10-30)
+
+- Open source under the MIT licence. README covers running it on your own Mac, with screenshots.
+- The Jira site has no default; set yours in Settings to get Jira chips (existing settings are kept).
+- Link titles decode more HTML entities (`&hellip;`, curly quotes, `&copy;`…); `&amp;lt;` no longer turns into `<`.
+
 ## 1.4.2 (2026-10-29)
 
 - Masked items are searchable by their label: "account", "ifsc", "api key", "pan" and so on find them even though the value is hidden. Migration v3 re-indexes existing masked items.

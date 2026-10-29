@@ -60,7 +60,8 @@ final class Preferences: ObservableObject {
             "maxItems": 1000, "maxDays": 30, "sensitiveMinutes": 10,
             "excludedBundleIDs": Self.defaultExcluded,
             "linkPreviews": true, "ocr": true, "directPaste": true, "capturePaused": false,
-            "smartActions": true, "jiraBaseURL": "https://example.atlassian.net",
+            // Empty: Jira chips appear once you set your site in Settings. UI tests use a placeholder.
+            "smartActions": true, "jiraBaseURL": UITest.enabled ? "https://example.atlassian.net" : "",
             "glideSelection": true, "sweepSelection": true, "parallax": true, "haptics": true,
             "doubleCtrlInPanel": true, "doubleCtrlGlobal": true, "hotkeyCyclesTabs": true, "searchEverywhere": true, "pasteStackEnabled": false,
             // UI test runs stay silent; everyone else gets sounds at 40%.

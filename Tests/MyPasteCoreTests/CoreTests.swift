@@ -118,7 +118,7 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
 
         #expect(try store.search("treasury") == [a])
         #expect(try store.search("SURY rep") == [a])
-        #expect(try store.search("gl") == [b])
+        #expect(try store.search("ex") == [b])
         #expect(try store.search("nothing-here").isEmpty)
 
         try store.setTags(a, ["#finance", "q3 ", "finance"])
@@ -262,6 +262,11 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
 
 @Suite struct HTMLMetadataTests {
     let base = URL(string: "https://example.com/blog/post?id=1")!
+
+    @Test func namedEntities() {
+        #expect(HTMLMetadata.decodeEntities("Redirecting&hellip;") == "Redirecting…")
+        #expect(HTMLMetadata.decodeEntities("It&rsquo;s &ldquo;fine&rdquo; &amp;lt;") == "It’s “fine” &lt;")
+    }
 
     @Test func openGraphWins() {
         let html = """

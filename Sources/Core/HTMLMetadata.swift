@@ -74,8 +74,12 @@ public struct HTMLMetadata: Equatable {
     static func decodeEntities(_ s: String) -> String {
         guard s.contains("&") else { return s }
         var out = s
-        for (entity, ch) in [("&amp;", "&"), ("&quot;", "\""), ("&#39;", "'"), ("&apos;", "'"), ("&lt;", "<"),
-                             ("&gt;", ">"), ("&nbsp;", " "), ("&ndash;", "–"), ("&mdash;", "—"), ("&middot;", "·")] {
+        // &amp; last, so "&amp;lt;" stays the literal text "&lt;".
+        for (entity, ch) in [("&quot;", "\""), ("&#39;", "'"), ("&apos;", "'"), ("&lt;", "<"), ("&gt;", ">"),
+                             ("&nbsp;", " "), ("&ndash;", "–"), ("&mdash;", "—"), ("&middot;", "·"), ("&hellip;", "…"),
+                             ("&lsquo;", "‘"), ("&rsquo;", "’"), ("&ldquo;", "“"), ("&rdquo;", "”"), ("&bull;", "•"),
+                             ("&laquo;", "«"), ("&raquo;", "»"), ("&copy;", "©"), ("&reg;", "®"), ("&trade;", "™"),
+                             ("&amp;", "&")] {
             out = out.replacingOccurrences(of: entity, with: ch)
         }
         let numeric = try! NSRegularExpression(pattern: #"&#(x[0-9a-fA-F]+|[0-9]+);"#)
