@@ -1,140 +1,56 @@
 # myPaste
 
-A personal, local-only clipboard manager for macOS modelled on Paste. No sync, no account, no telemetry.
+A clipboard manager for the Mac that keeps everything you copy one keystroke away.
+
+I loved Paste but didn't need sync, an account or a subscription, so I built my own. Everything stays on
+your Mac.
 
 ![The myPaste strip: recent copies as cards, with pinboard tabs](docs/screenshots/strip.png)
 
-- History of text, links (with previews), images (with OCR), files, colours and code, auto-categorised
-- Pinboards and tags; search across all of them with `/type @app #tag` filters
-- Direct paste, plain-text paste, Quick Look, ⌘K transforms (JSON/SQL formatting, URL cleanup, encodings, timestamps)
-- OTPs, API keys and identifiers are detected, masked and expire automatically
-- Keyboard-first: hold ⌘ to see every shortcut
+## What it does
 
-<img src="docs/screenshots/settings.png" alt="Settings: Appearance pane" width="560">
+Press **⇧⌘V** and your recent copies slide up as cards. Pick one and it's pasted where you were typing.
 
-## Run it on your Mac
+- **Remembers everything:** text, links (with previews), images (searchable, even the text inside them), files, colours and code.
+- **Sorts itself:** every copy is labelled by type, and you can filter by type, app or tag.
+- **Pinboards:** keep the things you reuse, like addresses, snippets and queries, on boards of your own.
+- **Finds anything:** search across your history and every board at once.
+- **Keeps secrets quiet:** OTPs, API keys and ID numbers are masked and cleared after a few minutes.
+- **Small conveniences:** format JSON or SQL, clean up URLs and convert timestamps with ⌘K.
 
-Requirements: macOS 14 or later (Liquid Glass on macOS 26), Apple silicon or Intel, and a Swift 6 toolchain.
-Xcode is not needed: the Command Line Tools are enough (`xcode-select --install`).
+Hold **⌘** while the strip is open to see every shortcut. The full list is in [docs/SHORTCUTS.md](docs/SHORTCUTS.md).
+
+<img src="docs/screenshots/settings.png" alt="myPaste Settings" width="560">
+
+## Install
+
+You need macOS 14 or later and Apple's Command Line Tools (`xcode-select --install`). You don't need Xcode.
 
 ```
 git clone https://github.com/Navdevl/myPaste.git
 cd myPaste
-make cert      # optional, once: a local self-signed signing identity (see below)
-make install   # builds, signs and copies myPaste.app to ~/Applications, then launches it
+make cert
+make install
 ```
 
-On first launch a short walkthrough asks for Accessibility access (System Settings → Privacy & Security →
-Accessibility). myPaste needs it to type ⌘V into the app you were using; without it, picking a card only copies it.
-Then press ⇧⌘V anywhere.
+`make cert` creates a signing certificate on your Mac (it never leaves it), so the permission below survives
+future updates. `make install` builds the app into `~/Applications` and opens it.
 
-Why `make cert`: macOS ties the Accessibility grant to the app's signature. With the local identity it survives
-rebuilds; without it the app is ad-hoc signed and you re-grant access after each `make install`. The script only
-adds a certificate to your login keychain; nothing leaves your machine.
+On first launch, myPaste asks for **Accessibility** access. That's how it pastes into the app you were using.
+Without it, picking a card just copies it.
 
-Your data lives in `~/Library/Application Support/myPaste/`. To uninstall, quit myPaste and delete
-`~/Applications/myPaste.app` and that folder.
+To uninstall, quit myPaste and delete `~/Applications/myPaste.app` and
+`~/Library/Application Support/myPaste`.
 
-## Build
+## Contributing
 
-```
-make cert      # once: self-signed "myPaste Dev" identity, keeps the Accessibility grant across rebuilds
-make test      # Swift Testing suite for Core (classifier, sensitive detection, GRDB store, search, retention)
-make install   # swift build -c release, bundle, sign, copy to ~/Applications/myPaste.app and launch
-make uitest    # UI tests: drives the real app via the Accessibility API (~35 s; don't type meanwhile)
-make version   # prints VERSION and the build number
-```
+Ideas and pull requests are welcome. [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) covers building, tests and how
+the code is laid out.
 
-SwiftPM package: GRDB for storage, KeyboardShortcuts for global hotkeys, Liquid Glass on macOS 26.
-`make` wraps `swift build` and assembles/signs the .app bundle.
+## License
 
-KeyboardShortcuts is pinned to 1.15.0, the last release without `#Preview` macros (those need Xcode).
-Settings uses its own recorder rather than `KeyboardShortcuts.Recorder`, whose localized strings
-come from a SwiftPM resource bundle it looks for at the .app root, where a signed app can't hold one.
-
-## Use
-
-| Key | Action |
-| --- | --- |
-| ⇧⌘V | Open / close the strip |
-| hold ⌘ | Edit mode: cards jiggle, ✕ delete buttons, ⌘1–9 badges, shortcut bar |
-| ← → / ↑ ↓ | Select card / switch History and pinboard tabs |
-| ⇧⌘V again, ⌃Tab / ⌃⇧Tab | Next / previous board |
-| hold ⌥ | Show ⌥0–9 board numbers |
-| ⌃⌃ (double-tap Control) | Pin picker for the selected card; outside the strip, for your latest copy |
-| ⌘↑ ⌘↓ (Home/End) | First / last card |
-| Tab / ⇧Tab | Cycle the type filter |
-| ⌥0–9 | History / Nth pinboard |
-| ↩ / ⇧↩ | Paste / paste as plain text |
-| ⌘1–9 (⇧ for plain) | Quick paste the Nth card |
-| Space | Quick Look |
-| ⌘⇧⌫ | Delete card (⌘Z undoes, up to 10, for 10 s) |
-| ⌘⌫ / ⌥⌫ | Delete text in the search field |
-| ⌘P / ⌘⇧P | Pin to last pinboard (or unpin) / pick a pinboard |
-| ⌘O | Open link / show file in Finder |
-| ⌘C / ⌥⌘C | Copy / copy as plain text, without pasting |
-| ⌘I | Info |
-| ⌘J | Smart action: open Jira key / GitHub PR, decode JWT, convert timestamp |
-| ⌘K | Actions: JSON/SQL formatting, text cleanup, case, URL cleanup, encode/decode, hashes, epoch ↔ IST |
-| ⌘R ⌘T ⌘E | Rename / tags / edit text |
-| ⌘N | New pinboard |
-| ⇧⌘C (global) | Paste Stack, if enabled in Settings → Shortcuts (off by default): copy several things, then each ⌘V pastes the next |
-
-Search covers History and every pinboard, whichever tab is open (Settings → Appearance → Pinboards → Search everywhere). Words match text, titles, file names, link titles and text in images. `/img` `/link` `/code` `/text`
-`/rich` `/file` `/color` `/email` `/phone` `/secret` filter by type (prefixes work: `/im`), `@slack` filters by
-source app, `#tag` by tag. Tokens combine.
-
-Drag a card onto a pinboard tab to pin it. Right-click a card for everything else.
-
-Hold ⇧ in the panel for plain-text mode: ↩, ⌘1–9 and double-click all paste without formatting.
-
-Snippets: a pinned item containing `{date}` `{time}` `{datetime}` (IST) `{clipboard}` `{uuid}` or
-`{cursor}` is expanded at paste time; the caret lands at `{cursor}`.
-
-Privacy: OTPs, API keys, JWTs, private keys and password-like text are blurred; PAN, Aadhaar, IFSC,
-UPI IDs, account and card numbers are always masked in previews (e.g. `••••1234`). All of them expire
-after the sensitive TTL unless pinned, and existing history is re-scanned at launch.
-
-Maccy: Settings → Backup → "Import Pins from Maccy" copies Maccy's pinned items onto a "Maccy" pinboard.
-
-Sounds: Settings → Appearance → Sounds: per event, pick from the built-in pack, choose your own audio file,
-preview, set volume. The pack is synthesized by `scripts/make-sounds.swift` (re-run it to regenerate
-`Resources/Sounds`); no third-party audio is bundled.
-
-Backup: Settings → Backup exports a `.mypaste` zip of pinboards (optionally history). Sensitive items are
-never exported. Import merges pinboards by name and items by content.
-
-Diagnostics: errors go to `~/Library/Application Support/myPaste/logs/` (never clipboard contents);
-`MYPASTE_PERF=1` logs main-thread hangs over 100 ms. `scripts/make-icon.sh` regenerates the app icon.
-
-Data: `~/Library/Application Support/myPaste/` (SQLite + blobs). Set `MYPASTE_DATA_DIR` to run against
-a throwaway database. Post the distributed notification `local.mypaste.toggle` to toggle the strip from scripts.
-
-## Layout
-
-- `Sources/Core` (MyPasteCore): no AppKit. Classifier, sensitive detection, `ClipStore` on GRDB (migrations, FTS5 trigram search, retention).
-- `Sources/App`: AppKit/SwiftUI. Pasteboard polling, hotkeys, panel, cards, Paste Stack, OCR/link enrichment, settings.
-- `Tests/MyPasteCoreTests`: Swift Testing suites for Core.
-
-## Releases
-
-`VERSION` holds the semver version; the build number is the git commit count. For a release: update
-`CHANGELOG.md`, bump `VERSION`, commit, `git tag vX.Y.Z`, `make install`.
-
-## UI tests
-
-`Tests/UITests` is an AppKit harness (not XCUITest: no Xcode here). It launches `build/myPaste.app` with
-`MYPASTE_UITEST=1` and a throwaway data folder, types with CGEvents, and finds/presses controls by
-accessibility identifier. Test-only seams (file panels, URL opening, Settings pane routing) live in
-`Sources/App/UITestHooks.swift`. The terminal running it needs Accessibility permission. The conflict test
-launches a fake app with Maccy's bundle id and is skipped if the real Maccy is running.
-
-## Licence and credit
-
-MIT, see [LICENSE](LICENSE). Use it, change it, ship it, including commercially. Keep the copyright notice in
-copies and derivatives, and please credit "myPaste by Navdevl" with a link to
-https://github.com/Navdevl/myPaste if you build on it.
+MIT, see [LICENSE](LICENSE). You're free to use, change and share it, including commercially. Just keep the
+copyright notice, and a link back to this repo is appreciated.
 
 Built with [GRDB](https://github.com/groue/GRDB.swift) and
-[KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) (both MIT). The sound pack and icon are
-generated by scripts in this repo. Not affiliated with Paste or Maccy.
+[KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts). Not affiliated with Paste or Maccy.
