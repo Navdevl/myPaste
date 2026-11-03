@@ -2,6 +2,13 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
+## 1.6.0 (2026-11-03)
+
+- Removed Paste Stack entirely: the ⇧⌘C shortcut, the menu-bar item, the "Add to Paste Stack" card action, the HUD and the Settings switch. The leftover setting and stored shortcut are cleaned up on launch.
+- The default Open shortcut is now ⇧⌘C (was ⇧⌘V). If you already recorded your own, it is kept.
+- The shortcut-clash check now compares only your Open shortcut against other clipboard apps' defaults.
+- UI tests no longer depend on the Open shortcut you recorded.
+
 ## 1.5.0 (2026-10-30)
 
 - Open source under the MIT licence. README covers running it on your own Mac, with screenshots.

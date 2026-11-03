@@ -84,7 +84,7 @@ struct OnboardingView: View {
         VStack(spacing: 16) {
             Tile(symbol: trusted ? "checkmark.seal.fill" : "hand.raised.fill", tint: trusted ? .green : .blue, size: 64)
             Text("Allow pasting into apps").font(.system(size: 24, weight: .bold))
-            Text("myPaste types ⌘V for you after you pick an item, and Paste Stack listens for ⌘V. macOS calls this Accessibility access. myPaste never reads your screen or keystrokes otherwise.")
+            Text("myPaste types ⌘V for you after you pick an item. macOS calls this Accessibility access. myPaste never reads your screen or keystrokes otherwise.")
                 .foregroundStyle(.secondary).multilineTextAlignment(.center)
             if trusted {
                 Label("Access granted", systemImage: "checkmark.circle.fill").font(.headline).foregroundStyle(.green)
@@ -104,14 +104,11 @@ struct OnboardingView: View {
             Text("Your shortcuts").font(.system(size: 24, weight: .bold))
             VStack(spacing: 10) {
                 HStack { Text("Open myPaste").frame(width: 140, alignment: .leading); ShortcutRecorder(name: .openPanel) }
-                if Preferences.shared.pasteStackEnabled {
-                    HStack { Text("Paste Stack").frame(width: 140, alignment: .leading); ShortcutRecorder(name: .pasteStack) }
-                }
             }
             ForEach(conflicts) { c in
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    Text("\(c.name) is running and may grab \"\(ShortcutConflicts.label(c.shortcut))\".").font(.callout)
+                    Text("\(c.name) is running and may grab \"Open myPaste\".").font(.callout)
                     Button("Quit \(c.name)") { c.app.terminate() }
                 }
             }
@@ -125,7 +122,7 @@ struct OnboardingView: View {
         VStack(spacing: 16) {
             Tile(symbol: "sparkles", tint: .purple, size: 64)
             Text("You're set").font(.system(size: 24, weight: .bold))
-            Text("Copy anything, then press \(KeyboardShortcuts.getShortcut(for: .openPanel)?.description ?? "⇧⌘V").")
+            Text("Copy anything, then press \(KeyboardShortcuts.getShortcut(for: .openPanel)?.description ?? "⇧⌘C").")
                 .font(.title3).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 8) {
                 tip("hold ⌘", "shows every shortcut and lets you delete cards")

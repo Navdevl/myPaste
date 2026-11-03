@@ -5,8 +5,8 @@ import KeyboardShortcuts
 
 /// Global shortcuts; KeyboardShortcuts persists user changes in UserDefaults.
 extension KeyboardShortcuts.Name {
-    static let openPanel = Self("openPanel", default: .init(.v, modifiers: [.command, .shift]))
-    static let pasteStack = Self("pasteStack", default: .init(.c, modifiers: [.command, .shift]))
+    /// UI test runs use their own key so they never read (or depend on) the shortcut you recorded.
+    static let openPanel = Self(UITest.enabled ? "openPanelUITest" : "openPanel", default: .init(.c, modifiers: [.command, .shift]))
 }
 
 /// User settings, persisted in UserDefaults.
@@ -41,8 +41,6 @@ final class Preferences: ObservableObject {
     @Published var hotkeyCyclesTabs: Bool { didSet { d.set(hotkeyCyclesTabs, forKey: "hotkeyCyclesTabs") } }
     /// On: typing a search looks through History and every pinboard, whichever tab is open.
     @Published var searchEverywhere: Bool { didSet { d.set(searchEverywhere, forKey: "searchEverywhere") } }
-    /// Off by default: ⇧⌘C stays free for other apps until you opt in.
-    @Published var pasteStackEnabled: Bool { didSet { d.set(pasteStackEnabled, forKey: "pasteStackEnabled") } }
     @Published var soundsEnabled: Bool { didSet { d.set(soundsEnabled, forKey: "soundsEnabled") } }
     @Published var soundVolume: Double { didSet { d.set(soundVolume, forKey: "soundVolume") } }
     @Published var soundCopy: Bool { didSet { d.set(soundCopy, forKey: "soundCopy") } }
@@ -63,7 +61,7 @@ final class Preferences: ObservableObject {
             // Empty: Jira chips appear once you set your site in Settings. UI tests use a placeholder.
             "smartActions": true, "jiraBaseURL": UITest.enabled ? "https://example.atlassian.net" : "",
             "glideSelection": true, "sweepSelection": true, "parallax": true, "haptics": true,
-            "doubleCtrlInPanel": true, "doubleCtrlGlobal": true, "hotkeyCyclesTabs": true, "searchEverywhere": true, "pasteStackEnabled": false,
+            "doubleCtrlInPanel": true, "doubleCtrlGlobal": true, "hotkeyCyclesTabs": true, "searchEverywhere": true,
             // UI test runs stay silent; everyone else gets sounds at 40%.
             "soundsEnabled": !UITest.enabled, "soundVolume": 0.4, "soundCopy": true, "soundPaste": true, "soundDelete": true,
             "soundCopyChoice": "wood-knock", "soundPasteChoice": "soft-pop", "soundDeleteChoice": "whoosh",
@@ -86,7 +84,6 @@ final class Preferences: ObservableObject {
         doubleCtrlGlobal = d.bool(forKey: "doubleCtrlGlobal")
         hotkeyCyclesTabs = d.bool(forKey: "hotkeyCyclesTabs")
         searchEverywhere = d.bool(forKey: "searchEverywhere")
-        pasteStackEnabled = d.bool(forKey: "pasteStackEnabled")
         soundsEnabled = d.bool(forKey: "soundsEnabled")
         soundVolume = d.double(forKey: "soundVolume")
         soundCopy = d.bool(forKey: "soundCopy")

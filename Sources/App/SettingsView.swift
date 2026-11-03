@@ -222,7 +222,7 @@ private struct GeneralPane: View {
             }
         }
         Card(title: "Permissions") {
-            Row(title: "Accessibility", detail: "Needed for direct paste and Paste Stack") {
+            Row(title: "Accessibility", detail: "Needed for direct paste") {
                 if trusted {
                     Label("Granted", systemImage: "checkmark.seal.fill").foregroundStyle(.green)
                 } else {
@@ -344,7 +344,7 @@ private struct AppearancePane: View {
             toggle("Anywhere", "Double-tap Control in any app to pin what you copied last", $prefs.doubleCtrlGlobal, "appearance.ctrlGlobal")
         }
         Card(title: "Pinboards") {
-            toggle("Open shortcut cycles boards", "Pressing ⇧⌘V again while the strip is open moves to the next board", $prefs.hotkeyCyclesTabs, "appearance.cycle")
+            toggle("Open shortcut cycles boards", "Pressing ⇧⌘C again while the strip is open moves to the next board", $prefs.hotkeyCyclesTabs, "appearance.cycle")
             Divider()
             toggle("Search everywhere", "Searching from a pinboard also finds History and other boards. Off: search stays inside the open tab", $prefs.searchEverywhere, "appearance.searchEverywhere")
             Text("Also: ⌃Tab / ⌃⇧Tab next and previous board · hold ⌥ to see ⌥0–9 board numbers.")
@@ -448,7 +448,7 @@ private struct ShortcutsPane: View {
         ("hold ⌘", "Edit mode"), ("hold ⇧", "Plain mode"), ("Space", "Quick Look"), ("⌘J", "Smart action"), ("⌘K", "Actions"),
         ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo delete"), ("⌘P", "Pin"), ("⌘⇧P", "Pin to…"), ("⌃⌃", "Quick pin"), ("⌘O", "Open"),
         ("⌘C", "Copy"), ("⌥⌘C", "Copy plain"), ("⌘I", "Info"), ("⌘R", "Rename"), ("⌘T", "Tags"), ("⌘E", "Edit"),
-        ("⌘↑ ⌘↓", "First / last"), ("Tab", "Type filter"), ("⌃Tab", "Next board"), ("⇧⌘V again", "Next board"),
+        ("⌘↑ ⌘↓", "First / last"), ("Tab", "Type filter"), ("⌃Tab", "Next board"), ("⇧⌘C again", "Next board"),
         ("hold ⌥", "Board numbers"), ("⌥0–9", "Jump to board"), ("Esc", "Close"),
     ]
 
@@ -459,7 +459,7 @@ private struct ShortcutsPane: View {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("\(c.name) is running and may use the same shortcut as \"\(ShortcutConflicts.label(c.shortcut))\"").font(.callout.weight(.medium))
+                            Text("\(c.name) is running and may use the same shortcut as \"Open myPaste\"").font(.callout.weight(.medium))
                             Text("Only one app receives the key press. Quit \(c.name) or record a different shortcut below.").font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
@@ -471,21 +471,9 @@ private struct ShortcutsPane: View {
         }
         Card(title: "Global") {
             Row(title: "Open myPaste") { ShortcutRecorder(name: .openPanel) }
-            Divider()
-            Row(title: "Paste Stack", detail: "Copy several things in order, then each ⌘V pastes the next one. Off by default.") {
-                Toggle("", isOn: $prefs.pasteStackEnabled).toggleStyle(.switch).labelsHidden()
-                    .accessibilityIdentifier("shortcuts.pasteStack")
-            }
-            if prefs.pasteStackEnabled {
-                Row(title: "Paste Stack shortcut") { ShortcutRecorder(name: .pasteStack) }
-            }
         }
         Color.clear.frame(height: 0)
             .onAppear { conflicts = ShortcutConflicts.current() }
-            .onChange(of: prefs.pasteStackEnabled) { _, _ in
-                // Enabling registers ⇧⌘C, which may now clash with a running clipboard app.
-                DispatchQueue.main.async { conflicts = ShortcutConflicts.current() }
-            }
         Card(title: "In the panel") {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), alignment: .leading)], alignment: .leading, spacing: 10) {
                 ForEach(panelKeys, id: \.0) { KeyChip(keys: $0.0, label: $0.1) }
@@ -844,6 +832,6 @@ struct ShortcutRecorder: View {
         recording = false
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
-        if name != .pasteStack || Preferences.shared.pasteStackEnabled { KeyboardShortcuts.enable(name) }
+        KeyboardShortcuts.enable(name)
     }
 }

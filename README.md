@@ -9,7 +9,7 @@ your Mac.
 
 ## What it does
 
-Press **⇧⌘V** and your recent copies slide up as cards. Pick one and it's pasted where you were typing.
+Press **⇧⌘C** and your recent copies slide up as cards. Pick one and it's pasted where you were typing.
 
 - **Remembers everything:** text, links (with previews), images (searchable, even the text inside them), files, colours and code.
 - **Sorts itself:** every copy is labelled by type, and you can filter by type, app or tag.

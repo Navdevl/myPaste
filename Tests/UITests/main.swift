@@ -371,14 +371,14 @@ func runAll() async {
         await sleep(0.6)
     }
 
-    await test("boards: ⌘P creates one; ⇧⌘V again and ⌃Tab cycle tabs; hold ⌥ shows numbers") {
+    await test("boards: ⌘P creates one; ⇧⌘C again and ⌃Tab cycle tabs; hold ⌥ shows numbers") {
         await copy("[uitest] board cycling")
         check(await openPanel(), "strip is visible")
         await key(35, .maskCommand) // ⌘P → pins to a new "Pinned" board
         check(await waitFor { (try? store.pinboards().map(\.name))?.contains("Pinned") == true }, "⌘P created the Pinned board")
         check(await waitFor(2) { activeTab() == "History" }, "starts on History (got \(activeTab() ?? "nil"))")
-        await key(9, [.maskCommand, .maskShift]) // ⇧⌘V while open → next tab
-        check(await waitFor(2) { activeTab() == "Pinned" }, "⇧⌘V moved to Pinned (got \(activeTab() ?? "nil"))")
+        await key(8, [.maskCommand, .maskShift]) // ⇧⌘C while open → next tab
+        check(await waitFor(2) { activeTab() == "Pinned" }, "⇧⌘C moved to Pinned (got \(activeTab() ?? "nil"))")
         await key(48, .maskControl) // ⌃Tab → wraps to History
         check(await waitFor(2) { activeTab() == "History" }, "⌃Tab wrapped to History (got \(activeTab() ?? "nil"))")
         await key(48, [.maskControl, .maskShift])
@@ -505,16 +505,7 @@ func runAll() async {
         cfg.createsNewApplicationInstance = true
         let fakeApp = try await NSWorkspace.shared.openApplication(at: fake, configuration: cfg)
         await sleep(1)
-        // Paste Stack is off by default: ⇧⌘C must do nothing and can't clash with anything.
-        await focusTarget()
-        await key(8, [.maskCommand, .maskShift])
-        await sleep(0.6)
-        check(app.windows.allSatisfy { $0.identifier != "pastestack.hud" }, "⇧⌘C ignored while Paste Stack is off")
         post("local.mypaste.uitest.settings", "shortcuts")
-        guard let toggle = await element("shortcuts.pasteStack", timeout: 5) else { check(false, "Paste Stack switch found"); fakeApp.terminate(); return }
-        check(elements("conflict.quit").isEmpty, "no conflict reported while Paste Stack is off")
-        check(toggle.press(), "Paste Stack switched on")
-        post("local.mypaste.uitest.settings", "shortcuts") // pane re-reads the running apps on appear
         guard let quit = await element("conflict.quit", timeout: 5) else { check(false, "conflict shown with Quit button"); fakeApp.terminate(); return }
         check(quit.press(), "Quit pressed")
         check(await waitFor(5) { fakeApp.isTerminated }, "clashing app terminated")

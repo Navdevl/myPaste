@@ -64,7 +64,6 @@ final class AppModel: ObservableObject {
     var onPaste: ((ClipItem, Bool) -> Void)?
     /// (item, plainText) → copy without pasting.
     var onCopy: ((ClipItem, Bool) -> Void)?
-    var onAddToStack: ((ClipItem) -> Void)?
     var onOpenSettings: (() -> Void)?
     var onOpen: ((ClipItem) -> Void)?
     /// Paste arbitrary text (⌘K results).

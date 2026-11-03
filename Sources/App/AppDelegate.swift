@@ -22,7 +22,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var model: AppModel!
     private var monitor: PasteboardMonitor!
     private var panel: PanelController!
-    private var stack: PasteStack!
     private var enrichment: Enrichment!
     private var statusItem: NSStatusItem!
     private var settingsWindow: NSWindow?
@@ -58,7 +57,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         store.onChange = { [weak self] in self?.model.scheduleReload() }
         monitor = PasteboardMonitor(prefs: prefs)
         enrichment = Enrichment(store: store, prefs: prefs)
-        stack = PasteStack(store: store, monitor: monitor)
         panel = PanelController(model: model)
 
         monitor.onCapture = { [weak self] capture in self?.didCapture(capture) }
@@ -67,14 +65,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.onOpen = { [weak self] item in self?.open(item) }
         model.onPasteText = { [weak self] text in self?.pasteText(text, caretBack: nil) }
         model.onOpenURL = { [weak self] url in self?.panel.hide(); self?.openExternally(url) }
-        model.onAddToStack = { [weak self] item in self?.panel.hide(); self?.stack.append(item) }
         model.onOpenSettings = { [weak self] in self?.openSettings() }
 
         globalPicker = GlobalPinPicker(model: model)
         doubleCtrl.onDoubleTap = { [weak self] in self?.doubleControl() }
         configureDoubleTap()
         prefsObserver = prefs.objectWillChange.sink { [weak self] _ in
-            DispatchQueue.main.async { self?.configureDoubleTap(); self?.configurePasteStack() }
+            DispatchQueue.main.async { self?.configureDoubleTap() }
         }
         registerHotKeys()
         setupStatusItem()
@@ -147,7 +144,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         _ = try? store.prune(prefs.retention)
         guard let item = try? store.item(id: id) else { return }
         enrichment.process(item)
-        if stack.isActive { stack.append(item) }
     }
 
     private func paste(_ item: ClipItem, plain: Bool) {
@@ -248,26 +244,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// KeyboardShortcuts re-binds automatically when the user records a new combo in Settings.
     private func registerHotKeys() {
         KeyboardShortcuts.onKeyDown(for: .openPanel) { [weak self] in self?.openHotkey() }
-        KeyboardShortcuts.onKeyDown(for: .pasteStack) { [weak self] in self?.stack.toggle() }
-        configurePasteStack()
+        // Paste Stack (removed in 1.6.0) left a stored shortcut and a switch behind.
+        UserDefaults.standard.removeObject(forKey: "KeyboardShortcuts_pasteStack")
+        AppDefaults.store.removeObject(forKey: "pasteStackEnabled")
     }
 
-    /// ⇧⌘V: opens the strip; pressed again while open it moves to the next tab (History → boards → History).
+    /// ⇧⌘C: opens the strip; pressed again while open it moves to the next tab (History → boards → History).
     private func openHotkey() {
         if panel.isVisible, prefs.hotkeyCyclesTabs, model.editor == nil {
             model.switchTab(1)
         } else {
             panel.toggle()
-        }
-    }
-
-    /// Registers ⇧⌘C only while Paste Stack is enabled, and ends a running stack when it's switched off.
-    private func configurePasteStack() {
-        if prefs.pasteStackEnabled {
-            KeyboardShortcuts.enable(.pasteStack)
-        } else {
-            KeyboardShortcuts.disable(.pasteStack)
-            if stack?.isActive == true { stack.stop() }
         }
     }
 
@@ -289,7 +276,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var pauseItem: NSMenuItem!
     private var openItem: NSMenuItem!
-    private var stackItem: NSMenuItem!
 
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -297,7 +283,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         openItem = menu.addItem(withTitle: "Open myPaste", action: #selector(openPanel), keyEquivalent: "")
-        stackItem = menu.addItem(withTitle: "Start Paste Stack", action: #selector(toggleStack), keyEquivalent: "")
         pauseItem = menu.addItem(withTitle: "Pause Capture", action: #selector(togglePause), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
@@ -311,14 +296,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         pauseItem.title = prefs.capturePaused ? "Resume Capture" : "Pause Capture"
-        stackItem.title = stack.isActive ? "End Paste Stack" : "Start Paste Stack"
-        stackItem.isHidden = !prefs.pasteStackEnabled
         updateMenuShortcuts()
     }
 
     private func updateMenuShortcuts() {
         openItem?.title = "Open myPaste    " + (KeyboardShortcuts.getShortcut(for: .openPanel)?.description ?? "")
-        stackItem?.toolTip = KeyboardShortcuts.getShortcut(for: .pasteStack)?.description
     }
 
     private func updateStatusIcon() {
@@ -330,8 +312,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Let the menu finish closing first, or the panel resigns key immediately.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { self.panel.show() }
     }
-
-    @objc private func toggleStack() { stack.toggle() }
 
     @objc private func togglePause() {
         prefs.capturePaused.toggle()

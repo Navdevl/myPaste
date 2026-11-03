@@ -4,10 +4,10 @@
 
 | Key | Action |
 | --- | --- |
-| ⇧⌘V | Open / close the strip |
+| ⇧⌘C | Open / close the strip |
 | hold ⌘ | Edit mode: cards jiggle, ✕ delete buttons, ⌘1–9 badges, shortcut bar |
 | ← → / ↑ ↓ | Select card / switch History and pinboard tabs |
-| ⇧⌘V again, ⌃Tab / ⌃⇧Tab | Next / previous board |
+| ⇧⌘C again, ⌃Tab / ⌃⇧Tab | Next / previous board |
 | hold ⌥ | Show ⌥0–9 board numbers |
 | ⌃⌃ (double-tap Control) | Pin picker for the selected card; outside the strip, for your latest copy |
 | ⌘↑ ⌘↓ (Home/End) | First / last card |
@@ -26,7 +26,6 @@
 | ⌘K | Actions: JSON/SQL formatting, text cleanup, case, URL cleanup, encode/decode, hashes, epoch ↔ IST |
 | ⌘R ⌘T ⌘E | Rename / tags / edit text |
 | ⌘N | New pinboard |
-| ⇧⌘C (global) | Paste Stack, if enabled in Settings → Shortcuts (off by default): copy several things, then each ⌘V pastes the next |
 
 Hold ⇧ in the strip for plain-text mode: ↩, ⌘1–9 and double-click all paste without formatting.
 Drag a card onto a pinboard tab to pin it. Right-click a card for everything else.

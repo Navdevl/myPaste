@@ -7,8 +7,7 @@ enum ShortcutConflicts {
     struct Conflict: Identifiable {
         let app: NSRunningApplication
         let name: String
-        let shortcut: KeyboardShortcuts.Name
-        var id: String { (app.bundleIdentifier ?? name) + shortcut.rawValue }
+        var id: String { app.bundleIdentifier ?? name }
     }
 
     private static let known: [(bundleID: String, name: String, key: KeyboardShortcuts.Key, mods: NSEvent.ModifierFlags)] = [
@@ -21,25 +20,16 @@ enum ShortcutConflicts {
     ]
 
     static func current() -> [Conflict] {
-        let ours: [(KeyboardShortcuts.Name, KeyboardShortcuts.Shortcut?)] = [
-            (.openPanel, KeyboardShortcuts.getShortcut(for: .openPanel)),
-            (.pasteStack, Preferences.shared.pasteStackEnabled ? KeyboardShortcuts.getShortcut(for: .pasteStack) : nil),
-        ]
+        guard let mine = KeyboardShortcuts.getShortcut(for: .openPanel) else { return [] }
         var out: [Conflict] = []
         for app in NSWorkspace.shared.runningApplications {
             guard let id = app.bundleIdentifier else { continue }
             for k in known where k.bundleID == id {
                 let theirs = KeyboardShortcuts.Shortcut(k.key, modifiers: k.mods)
-                for (name, mine) in ours where mine == theirs {
-                    out.append(Conflict(app: app, name: k.name, shortcut: name))
-                }
+                if mine == theirs { out.append(Conflict(app: app, name: k.name)) }
             }
         }
         return out
-    }
-
-    static func label(_ name: KeyboardShortcuts.Name) -> String {
-        name == .openPanel ? "Open myPaste" : "Paste Stack"
     }
 
     /// One alert per launch at most, and never again for an app the user said to ignore.
@@ -47,8 +37,8 @@ enum ShortcutConflicts {
         let ignored = Set(AppDefaults.store.stringArray(forKey: "ignoredConflicts") ?? [])
         guard let c = current().first(where: { !ignored.contains($0.id) }) else { return }
         let alert = NSAlert()
-        alert.messageText = "\(c.name) may be using \(KeyboardShortcuts.getShortcut(for: c.shortcut)?.description ?? "")"
-        alert.informativeText = "\(c.name) is running, and its default shortcut is the same as myPaste's \"\(label(c.shortcut))\". Only one app gets the key press."
+        alert.messageText = "\(c.name) may be using \(KeyboardShortcuts.getShortcut(for: .openPanel)?.description ?? "")"
+        alert.informativeText = "\(c.name) is running, and its default shortcut is the same as myPaste's \"Open myPaste\". Only one app gets the key press."
         alert.addButton(withTitle: "Quit \(c.name)")
         alert.addButton(withTitle: "Change Shortcut…")
         alert.addButton(withTitle: "Ignore")

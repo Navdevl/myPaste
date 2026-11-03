@@ -301,7 +301,6 @@ final class PanelController: NSObject, NSWindowDelegate {
             default: return false
             }
         }
-        // ⌥⌘C, not ⇧⌘C: the global Paste Stack shortcut owns ⇧⌘C and would fire first.
         if flags == [.command, .option], code == kVK_ANSI_C {
             if let item = model.selectedItem { model.onCopy?(item, true) }
             return true

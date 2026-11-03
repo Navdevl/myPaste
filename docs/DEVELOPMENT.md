@@ -20,7 +20,7 @@ come from a SwiftPM resource bundle it looks for at the .app root, where a signe
 ## Layout
 
 - `Sources/Core` (MyPasteCore): no AppKit. Classifier, sensitive detection, `ClipStore` on GRDB (migrations, FTS5 trigram search, retention).
-- `Sources/App`: AppKit/SwiftUI. Pasteboard polling, hotkeys, panel, cards, Paste Stack, OCR/link enrichment, settings.
+- `Sources/App`: AppKit/SwiftUI. Pasteboard polling, hotkeys, panel, cards, OCR/link enrichment, settings.
 - `Tests/MyPasteCoreTests`: Swift Testing suites for Core.
 - `Tests/UITests`: the UI test harness.
 - `scripts/`: signing identity, app icon and sound pack generators.
