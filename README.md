@@ -24,23 +24,26 @@ Hold **⌘** while the strip is open to see every shortcut. The full list is in 
 
 ## Install
 
-You need macOS 14 or later and Apple's Command Line Tools (`xcode-select --install`). You don't need Xcode.
+Paste this into Terminal:
 
 ```
-git clone https://github.com/Navdevl/myPaste.git
-cd myPaste
-make cert
-make install
+curl -fsSL https://raw.githubusercontent.com/Navdevl/myPaste/main/scripts/install.sh | bash
 ```
 
-`make cert` creates a signing certificate on your Mac (it never leaves it), so the permission below survives
-future updates. `make install` builds the app into `~/Applications` and opens it.
+It downloads the latest release into `~/Applications` and opens it. It works on macOS 14 or later, on both
+Apple silicon and Intel Macs, and you don't need any developer tools.
 
-On first launch, myPaste asks for **Accessibility** access. That's how it pastes into the app you were using.
-Without it, picking a card just copies it.
+When myPaste asks, allow **Accessibility** access (System Settings → Privacy & Security → Accessibility).
+That's how it pastes into the app you were using. Then press **⇧⌘C**.
 
-To uninstall, quit myPaste and delete `~/Applications/myPaste.app` and
-`~/Library/Application Support/myPaste`.
+Run the same command again to update. If pasting stops working after an update, remove myPaste from the
+Accessibility list and add it again.
+
+**Build it yourself instead:** clone the repo and run `./scripts/install.sh --source`. It checks for
+Apple's Command Line Tools and Swift 6 first, and tells you what's missing.
+
+**Uninstall:** `./scripts/install.sh --uninstall` (add `--purge` to also delete your history), or delete
+`~/Applications/myPaste.app` and `~/Library/Application Support/myPaste`.
 
 ## Contributing
 

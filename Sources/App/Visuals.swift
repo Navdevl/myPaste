@@ -201,11 +201,15 @@ extension View {
     /// Liquid Glass on macOS 26; an opaque window-coloured fill elsewhere, so text stays readable
     /// over whatever sits behind a borderless panel.
     @ViewBuilder func glassSurface(cornerRadius: CGFloat) -> some View {
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
             glassEffect(.regular, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         } else {
             background(Color(nsColor: .windowBackgroundColor).opacity(0.97), in: RoundedRectangle(cornerRadius: cornerRadius))
         }
+        #else
+        background(Color(nsColor: .windowBackgroundColor).opacity(0.97), in: RoundedRectangle(cornerRadius: cornerRadius))
+        #endif
     }
 }
 

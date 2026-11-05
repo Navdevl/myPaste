@@ -2,6 +2,12 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
+## 1.6.1 (2026-11-05)
+
+- One-line install: `scripts/install.sh` downloads the latest release (universal, Apple silicon + Intel), so you don't need developer tools. `--source` builds from a clone or a fresh checkout after checking for the Command Line Tools and Swift 6. `--uninstall [--purge]` removes it.
+- `make dist` and `scripts/release.sh` build and publish that release.
+- Builds with Swift 6.0/6.1 and pre-macOS 26 SDKs (Liquid Glass is compiled only when the SDK has it).
+
 ## 1.6.0 (2026-11-03)
 
 - Removed Paste Stack entirely: the ⇧⌘C shortcut, the menu-bar item, the "Add to Paste Stack" card action, the HUD and the Settings switch. The leftover setting and stored shortcut are cleaned up on launch.

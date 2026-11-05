@@ -44,12 +44,15 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     /// Liquid Glass on macOS 26; the HUD blur material elsewhere.
     private static func backdrop(hosting host: NSView) -> NSView {
+        // Swift 6.2 ships with the macOS 26 SDK; older SDKs don't have NSGlassEffectView at all.
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
             let glass = NSGlassEffectView()
             glass.cornerRadius = 22
             glass.contentView = host
             return glass
         }
+        #endif
         let blur = NSVisualEffectView()
         blur.material = .hudWindow
         blur.blendingMode = .behindWindow

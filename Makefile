@@ -13,7 +13,7 @@ CLT_FW   := /Library/Developer/CommandLineTools/Library/Developer/Frameworks
 TESTFLAGS := -Xswiftc -F -Xswiftc $(CLT_FW) -Xlinker -rpath -Xlinker $(CLT_FW) \
              -Xlinker -rpath -Xlinker /Library/Developer/CommandLineTools/Library/Developer/usr/lib
 
-.PHONY: all app test uitest install run cert clean version
+.PHONY: all app dist test uitest install run cert clean version
 
 version:
 	@echo $(VERSION) \($(BUILD_NUMBER)\)
@@ -40,6 +40,18 @@ app:
 		echo "warning: '$(IDENTITY)' cert missing (run make cert); ad-hoc signing"; \
 		codesign --force --deep --sign - $(BUNDLE); \
 	fi
+
+# Downloadable build for GitHub Releases: one universal (Apple silicon + Intel) binary, ad-hoc signed
+# (a self-signed identity would mean nothing on someone else's Mac). scripts/install.sh fetches it.
+DIST     := $(BUILD)/dist
+dist: app
+	swift build -c release --product $(APP) --triple x86_64-apple-macosx14.0
+	lipo -create .build/arm64-apple-macosx/release/$(APP) .build/x86_64-apple-macosx/release/$(APP) \
+		-output $(BUNDLE)/Contents/MacOS/$(APP)
+	codesign --force --deep --sign - $(BUNDLE)
+	rm -rf $(DIST) && mkdir -p $(DIST)
+	ditto -c -k --keepParent $(BUNDLE) $(DIST)/$(APP).zip
+	@lipo -archs $(BUNDLE)/Contents/MacOS/$(APP); echo "Wrote $(DIST)/$(APP).zip"
 
 FAKE     := $(BUILD)/uitest/FakeMaccy.app
 LSREG    := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister

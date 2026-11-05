@@ -35,7 +35,12 @@ come from a SwiftPM resource bundle it looks for at the .app root, where a signe
 ## Releases
 
 `VERSION` holds the semver version; the build number is the git commit count. For a release: update
-`CHANGELOG.md`, bump `VERSION`, commit, `git tag vX.Y.Z`, `make install`.
+`CHANGELOG.md`, bump `VERSION`, commit, `git tag vX.Y.Z`, then `scripts/release.sh`. It builds a universal,
+ad-hoc signed `myPaste.zip` (`make dist`) and publishes it as a GitHub release with that version's changelog
+section as the notes. `scripts/install.sh` always installs the latest release's `myPaste.zip`.
+
+Building on an older SDK works too: the Liquid Glass code is behind `#if compiler(>=6.2)`, so Swift 6.0/6.1
+toolchains build the blurred fallback.
 
 ## UI tests
 
