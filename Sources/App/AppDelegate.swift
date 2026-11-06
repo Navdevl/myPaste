@@ -110,6 +110,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !UITest.enabled || UITest.autoToggles > 0 {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.panel.warmUp() }
         }
+        if let pane = UITest.autoSettingsPane {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in SettingsRouter.shared.pane = pane; self?.openSettings() }
+        }
         if UITest.autoToggles > 0 {
             for i in 0..<(UITest.autoToggles * 2) {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3 + Double(i) * 1.2) { [weak self] in self?.panel.toggle() }
@@ -122,12 +125,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self?.openSettings()
             }
         } else if !AppDefaults.store.bool(forKey: "didOnboard") {
-            // First run: guided onboarding (permission, shortcuts). Later runs: just warn about shortcut clashes.
+            // First run: guided onboarding (permission, shortcut).
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.showWelcome() }
-        } else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                ShortcutConflicts.warnIfNeeded { [weak self] in self?.openSettings() }
-            }
         }
 
         // Launch at login defaults to on, but only for the installed copy, not build/ or test runs.
@@ -255,7 +254,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         KeyboardShortcuts.onKeyDown(for: .openPanel) { [weak self] in self?.openHotkey() }
         // Paste Stack (removed in 1.6.0) left a stored shortcut and a switch behind.
         UserDefaults.standard.removeObject(forKey: "KeyboardShortcuts_pasteStack")
-        AppDefaults.store.removeObject(forKey: "pasteStackEnabled")
+        if !UITest.enabled { UserDefaults.standard.removeObject(forKey: "KeyboardShortcuts_openPanelUITest") } // left by test runs
+        // Retired settings, so they don't linger in the preferences file.
+        for key in ["pasteStackEnabled", "sweepSelection", "parallax", "jiraBaseURL", "ignoredConflicts"] { AppDefaults.store.removeObject(forKey: key) }
     }
 
     /// ⇧⌘C: opens the strip; pressed again while open it moves to the next tab (History → boards → History).

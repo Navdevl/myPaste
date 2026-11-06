@@ -263,6 +263,20 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
 @Suite struct HTMLMetadataTests {
     let base = URL(string: "https://example.com/blog/post?id=1")!
 
+    @Test func refreshTargets() {
+        let stub = """
+        <html><head><title>Redirecting&hellip;</title>
+        <meta http-equiv="refresh" content="0; url=https://docs.example.com/latest/">
+        </head></html>
+        """
+        #expect(HTMLMetadata.refreshTarget(html: stub, base: base) == URL(string: "https://docs.example.com/latest/"))
+        #expect(HTMLMetadata.refreshTarget(html: "<meta http-equiv='refresh' content='0;URL=\"/next\"'>", base: base) == URL(string: "https://example.com/next"))
+        // A slow refresh is a "reload this page" widget, not a redirect.
+        #expect(HTMLMetadata.refreshTarget(html: #"<meta http-equiv="refresh" content="60; url=/x">"#, base: base) == nil)
+        #expect(HTMLMetadata.refreshTarget(html: #"<meta http-equiv="refresh" content="30">"#, base: base) == nil)
+        #expect(HTMLMetadata.refreshTarget(html: "<html><title>Normal</title></html>", base: base) == nil)
+    }
+
     @Test func namedEntities() {
         #expect(HTMLMetadata.decodeEntities("Redirecting&hellip;") == "Redirecting…")
         #expect(HTMLMetadata.decodeEntities("It&rsquo;s &ldquo;fine&rdquo; &amp;lt;") == "It’s “fine” &lt;")
@@ -486,7 +500,6 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
 }
 
 @Suite struct SmartDetectorTests {
-    let jira = URL(string: "https://example.atlassian.net")!
     let now = Date(timeIntervalSince1970: 1_799_996_400) // one hour before exp below
 
     private func b64url(_ s: String) -> String {
@@ -496,103 +509,26 @@ private func reason(_ s: String) -> SensitiveDetector.Reason? { SensitiveDetecto
 
     @Test func jwtDecode() throws {
         let token = b64url(#"{"alg":"HS256","typ":"JWT"}"#) + "." + b64url(#"{"sub":"test-user","exp":1800000000,"iat":1799990000}"#) + ".sig"
-        let chips = SmartDetector.chips(for: token, jiraBase: jira, now: now)
+        let chips = SmartDetector.chips(for: token, now: now)
         let jwt = try #require(chips.first)
         #expect(jwt.label.hasPrefix("JWT · expires"))
         guard case .text(let pretty) = jwt.action else { Issue.record("expected text"); return }
         #expect(pretty.contains("\"sub\" : \"test-user\""))
         #expect(pretty.contains("exp: 2027-01-15 13:30:00 IST"))
         #expect(pretty.contains("signature not verified"))
-        #expect(SmartDetector.chips(for: token, jiraBase: jira, now: now.addingTimeInterval(7200)).first?.label.hasPrefix("JWT · expired") == true)
-    }
-
-    @Test func jiraKeys() {
-        #expect(SmartDetector.jiraKeys(in: "Fix ABC-1234 and XYZ-12, not UTF-8 or SHA-256 or COVID-19") == ["ABC-1234", "XYZ-12"])
-        let chips = SmartDetector.chips(for: "see ABC-1234", jiraBase: jira, now: now)
-        #expect(chips.map(\.label) == ["ABC-1234"])
-        #expect(chips.first?.action == .open(URL(string: "https://example.atlassian.net/browse/ABC-1234")!))
-        #expect(SmartDetector.chips(for: "see ABC-1234", jiraBase: nil, now: now).isEmpty)
+        #expect(SmartDetector.chips(for: token, now: now.addingTimeInterval(7200)).first?.label.hasPrefix("JWT · expired") == true)
     }
 
     @Test func devIDs() {
-        let uuid = SmartDetector.chips(for: "3F2504E0-4F89-41D3-9A0C-0305E82C3301", jiraBase: nil, now: now)
+        let uuid = SmartDetector.chips(for: "3F2504E0-4F89-41D3-9A0C-0305E82C3301", now: now)
         #expect(uuid.first?.label == "UUID v4")
         #expect(uuid.first?.action == .text("3f2504e04f8941d39a0c0305e82c3301"))
-        let ts = SmartDetector.chips(for: "1800000000", jiraBase: nil, now: now)
+        let ts = SmartDetector.chips(for: "1800000000", now: now)
         #expect(ts.first?.label == "15 Jan 2027, 13:30 IST")
-        let gh = SmartDetector.chips(for: "https://github.com/swiftlang/swift/pull/123", jiraBase: jira, now: now)
+        let gh = SmartDetector.chips(for: "https://github.com/swiftlang/swift/pull/123", now: now)
         #expect(gh.first?.label == "swiftlang/swift#123")
-        #expect(SmartDetector.chips(for: "#3B82F6", jiraBase: nil, now: now).first?.label == "rgb(59, 130, 246)")
-        #expect(SmartDetector.chips(for: "{\"a\":1}", jiraBase: nil, now: now).first?.label == "Pretty JSON")
-        #expect(SmartDetector.chips(for: "hello world", jiraBase: jira, now: now).isEmpty)
-    }
-}
-
-@Suite struct MaccyImportTests {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("mypaste-maccy-\(UUID().uuidString)")
-
-    /// A store with Maccy 2.x's schema: two pins (plain + rich), one unpinned item.
-    private func makeMaccyStore() throws -> URL {
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let url = root.appendingPathComponent("Storage.sqlite")
-        let db = try DatabaseQueue(path: url.path)
-        try db.write { db in
-            try db.execute(sql: """
-            CREATE TABLE ZHISTORYITEM (Z_PK INTEGER PRIMARY KEY, Z_ENT INTEGER, Z_OPT INTEGER, ZNUMBEROFCOPIES INTEGER,
-                ZFIRSTCOPIEDAT TIMESTAMP, ZLASTCOPIEDAT TIMESTAMP, ZAPPLICATION VARCHAR, ZPIN VARCHAR, ZTITLE VARCHAR);
-            CREATE TABLE ZHISTORYITEMCONTENT (Z_PK INTEGER PRIMARY KEY, Z_ENT INTEGER, Z_OPT INTEGER, ZITEM INTEGER, ZTYPE VARCHAR, ZVALUE BLOB);
-            """)
-            // 799926848 s after 2001-01-01 = 2026-05-08
-            try db.execute(sql: "INSERT INTO ZHISTORYITEM VALUES (1,1,1,3,799926848,799930000,'com.tinyspeck.slackmacgap','b','x')")
-            try db.execute(sql: "INSERT INTO ZHISTORYITEM VALUES (2,1,1,1,799900000,799900000,'com.apple.Notes','o','y')")
-            try db.execute(sql: "INSERT INTO ZHISTORYITEM VALUES (3,1,1,1,799900000,799900000,'com.apple.Notes',NULL,'z')")
-            try db.execute(sql: "INSERT INTO ZHISTORYITEMCONTENT VALUES (1,2,1,1,'public.utf8-plain-text',?)", arguments: [Data("standup link https://meet.example.com/abc".utf8)])
-            try db.execute(sql: "INSERT INTO ZHISTORYITEMCONTENT VALUES (2,2,1,2,'public.utf8-plain-text',?)", arguments: [Data("Bold note".utf8)])
-            try db.execute(sql: "INSERT INTO ZHISTORYITEMCONTENT VALUES (3,2,1,2,'public.rtf',?)", arguments: [Data("{\\rtf1 {\\b Bold} note}".utf8)])
-            try db.execute(sql: "INSERT INTO ZHISTORYITEMCONTENT VALUES (4,2,1,3,'public.utf8-plain-text',?)", arguments: [Data("not pinned".utf8)])
-        }
-        return url
-    }
-
-    @Test func importsPinsOntoBoardAndDedupes() throws {
-        defer { try? FileManager.default.removeItem(at: root) }
-        let maccy = try makeMaccyStore()
-        let store = try ClipStore(directory: root.appendingPathComponent("mypaste"))
-        let s = try MaccyImport.importPins(from: maccy, into: store, sensitiveTTL: 600, appName: { $0 == "com.apple.Notes" ? "Notes" : nil })
-        #expect(s == MaccyImport.Summary(imported: 2, alreadyHere: 0, sensitive: 0))
-        let items = try store.allItems()
-        #expect(items.count == 2)
-        let board = try #require(try store.pinboards().first { $0.name == "Maccy" })
-        #expect(items.allSatisfy { $0.pinboardIDs == [board.id] })
-        let rich = try #require(items.first { $0.text == "Bold note" })
-        #expect(rich.kind == .richText && rich.hasRTF && rich.sourceAppName == "Notes")
-        let slack = try #require(items.first { $0.sourceBundleID == "com.tinyspeck.slackmacgap" })
-        #expect(abs(slack.createdAt.timeIntervalSinceReferenceDate - 799926848) < 1)
-        #expect(!items.contains { $0.text == "not pinned" })
-        // Re-run: nothing new, still pinned.
-        #expect(try MaccyImport.importPins(from: maccy, into: store, sensitiveTTL: 600) == MaccyImport.Summary(imported: 0, alreadyHere: 2, sensitive: 0))
-        #expect(try store.allItems().count == 2)
-    }
-
-    @Test func missingStoreThrows() {
-        #expect(throws: (any Error).self) {
-            try MaccyImport.importPins(from: URL(fileURLWithPath: "/nonexistent/Storage.sqlite"),
-                                       into: try ClipStore(directory: root.appendingPathComponent("x")), sensitiveTTL: 600)
-        }
-    }
-}
-
-/// Opt-in check against a real Maccy store copy: MYPASTE_MACCY_STORE=/path/to/Storage.sqlite swift test --filter RealMaccy
-@Suite struct RealMaccyStoreTests {
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["MYPASTE_MACCY_STORE"] != nil))
-    func importsFromRealStoreCopy() throws {
-        let src = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MYPASTE_MACCY_STORE"]!)
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("mypaste-realmaccy-\(UUID().uuidString)")
-        defer { try? FileManager.default.removeItem(at: dir) }
-        let store = try ClipStore(directory: dir)
-        let s = try MaccyImport.importPins(from: src, into: store, sensitiveTTL: 600)
-        let items = try store.allItems()
-        print("REAL MACCY: imported \(s.imported), sensitive \(s.sensitive), kinds \(items.map(\.kind.rawValue).sorted())")
-        #expect(s.imported > 0 && items.allSatisfy(\.isPinned))
+        #expect(SmartDetector.chips(for: "#3B82F6", now: now).first?.label == "rgb(59, 130, 246)")
+        #expect(SmartDetector.chips(for: "{\"a\":1}", now: now).first?.label == "Pretty JSON")
+        #expect(SmartDetector.chips(for: "hello world", now: now).isEmpty)
     }
 }

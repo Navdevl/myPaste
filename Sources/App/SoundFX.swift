@@ -19,8 +19,8 @@ final class SoundFX {
 
         var defaultSound: String {
             switch self {
-            case .copy: return "wood-knock"
-            case .paste: return "soft-pop"
+            case .copy: return "paper-snap"
+            case .paste: return "soft-thud"
             case .delete: return "whoosh"
             }
         }
@@ -34,21 +34,12 @@ final class SoundFX {
     }
 
     static let builtIns: [BuiltIn] = [
-        BuiltIn(id: "wood-knock", name: "Wood Knock", suits: .copy),
-        BuiltIn(id: "soft-key", name: "Soft Key", suits: .copy),
-        BuiltIn(id: "glass-tick", name: "Glass Tick", suits: .copy),
         BuiltIn(id: "paper-snap", name: "Paper Snap", suits: .copy),
-        BuiltIn(id: "bubble", name: "Bubble", suits: .copy),
-        BuiltIn(id: "marimba", name: "Marimba", suits: .copy),
-        BuiltIn(id: "classic-tick", name: "Classic Tick (1.3.0)", suits: .copy),
+        BuiltIn(id: "wood-knock", name: "Wood Knock", suits: .copy),
+        BuiltIn(id: "glass-tick", name: "Glass Tick", suits: .copy),
+        BuiltIn(id: "soft-thud", name: "Soft Thud", suits: .paste),
         BuiltIn(id: "soft-pop", name: "Soft Pop", suits: .paste),
-        BuiltIn(id: "water-drop", name: "Water Drop", suits: .paste),
-        BuiltIn(id: "thock", name: "Thock", suits: .paste),
-        BuiltIn(id: "chime", name: "Chime", suits: .paste),
         BuiltIn(id: "whoosh", name: "Whoosh", suits: .delete),
-        BuiltIn(id: "crumple", name: "Crumple", suits: .delete),
-        BuiltIn(id: "swipe", name: "Swipe", suits: .delete),
-        BuiltIn(id: "soft-thud", name: "Soft Thud", suits: .delete),
     ]
 
     /// Selection value meaning "the user's own file for this event".
@@ -98,12 +89,17 @@ final class SoundFX {
         return Bundle.main.url(forResource: id, withExtension: "wav", subdirectory: "Sounds")
     }
 
+    /// The stored choice, or the default if it names a sound that's no longer bundled (the pack was cut
+    /// from 15 to 6 in 1.7.0) or a custom file that's gone.
     func selection(for effect: Effect) -> String {
+        let stored: String
         switch effect {
-        case .copy: return prefs.soundCopyChoice
-        case .paste: return prefs.soundPasteChoice
-        case .delete: return prefs.soundDeleteChoice
+        case .copy: stored = prefs.soundCopyChoice
+        case .paste: stored = prefs.soundPasteChoice
+        case .delete: stored = prefs.soundDeleteChoice
         }
+        if stored == Self.customID { return customFile(for: effect) == nil ? effect.defaultSound : stored }
+        return Self.builtIns.contains { $0.id == stored } ? stored : effect.defaultSound
     }
 
     func setSelection(_ id: String, for effect: Effect) {

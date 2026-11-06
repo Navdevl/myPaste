@@ -9,21 +9,21 @@ struct CardView: View {
     static let size = CGSize(width: 232, height: 244)
 
     private var selected: Bool { model.selectedID == item.id }
+    private var hovered: Bool { model.hoveredID == item.id }
     /// Masked identifiers (PAN, Aadhaar, cards, accounts…) never show raw in a card, so they skip the blur.
     private var concealed: Bool { item.isSensitive && item.maskedPreview == nil && !selected && model.hoveredID != item.id }
 
     @State private var appeared = true
-    @State private var sweep: CGFloat = -1.5
     @Environment(\.selectionNamespace) private var selectionNS
 
     var body: some View {
         card
-            .modifier(Parallax(offset: parallaxOffset))
             .overlay(alignment: .top) { pinDrop }
-            .overlay(alignment: .topLeading) { if model.editMode { deleteButton } }
-            .overlay(alignment: .topTrailing) { if model.editMode, index < 9 { shortcutBadge } }
-            .overlay(alignment: .topTrailing) { if model.plainMode, !model.editMode, item.hasFormatting { plainBadge } }
-            .modifier(Jiggle(active: model.editMode, seed: index))
+            .overlay(alignment: .topLeading) { if hovered { deleteButton } }
+            .overlay(alignment: .topTrailing) {
+                if model.plainMode, item.hasFormatting { plainBadge } else if (hovered || selected), index < 9 { shortcutBadge }
+            }
+            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: hovered)
             .scaleEffect(model.pulseID == item.id ? 1.06 : 1)
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 36)
@@ -67,7 +67,6 @@ struct CardView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(selected && !glide ? Color.accentColor : Color.primary.opacity(0.08), lineWidth: selected && !glide ? 3 : 1)
         )
-        .overlay { sweepLayer }
         .overlay {
             // One ring shared across cards via matched geometry: it travels instead of jumping.
             if selected, glide, let selectionNS {
@@ -87,35 +86,9 @@ struct CardView: View {
         .onTapGesture { model.select(item.id) }
         .draggable(String(item.id))
         .contextMenu { CardMenu(item: item) }
-        .onChange(of: selected) { _, isSelected in
-            guard isSelected, model.prefs.sweepSelection else { return }
-            sweep = -1.5
-            withAnimation(.easeOut(duration: 0.5).delay(0.06)) { sweep = 1.5 }
-        }
     }
 
     private var glide: Bool { model.prefs.glideSelection }
-
-    /// Signed distance from the selected card, for the neighbour lean (nil = no parallax).
-    private var parallaxOffset: Int? {
-        guard model.prefs.parallax, let sel = model.selectedIndex else { return nil }
-        let d = index - sel
-        return abs(d) <= 2 && d != 0 ? d : nil
-    }
-
-    /// A soft diagonal band of light that crosses the card once when it becomes selected.
-    private var sweepLayer: some View {
-        GeometryReader { geo in
-            LinearGradient(colors: [.white.opacity(0), .white.opacity(0.22), .white.opacity(0)], startPoint: .leading, endPoint: .trailing)
-                .frame(width: geo.size.width * 0.55)
-                .rotationEffect(.degrees(18))
-                .offset(x: sweep * geo.size.width)
-                .blendMode(.plusLighter)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .opacity(sweep > -1.4 && sweep < 1.4 ? 1 : 0)
-        .allowsHitTesting(false)
-    }
 
     private var deleteButton: some View {
         Button { model.delete(item) } label: {
@@ -132,7 +105,7 @@ struct CardView: View {
         .help("Delete (⌘⇧⌫)")
     }
 
-    /// Top corner, so the hold-⌘ shortcut bar along the bottom never hides it.
+    /// Top corner, so the shortcut bar along the bottom never hides it.
     private var shortcutBadge: some View {
         Text("⌘\(index + 1)")
             .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -282,6 +255,11 @@ struct CardView: View {
                     Image(systemName: chip.symbol).font(.system(size: 9.5, weight: .semibold))
                     Text(chip.label).font(.system(size: 10.5, weight: .semibold)).lineLimit(1)
                     if chips.count > 1 { Text("+\(chips.count - 1)").font(.system(size: 9.5)).opacity(0.75) }
+                    if selected || hovered {
+                        Text("⌘J").font(.system(size: 9.5, weight: .bold, design: .rounded))
+                            .padding(.horizontal, 4).padding(.vertical, 1)
+                            .background(.white.opacity(0.25), in: RoundedRectangle(cornerRadius: 4))
+                    }
                 }
                 .padding(.horizontal, 7).padding(.vertical, 3)
                 .foregroundStyle(.white)
@@ -374,39 +352,6 @@ struct CardMenu: View {
         if item.text != nil, item.kind != .image, item.kind != .file { Button("Actions… (⌘K)") { model.editor = .actions(item.id) } }
         Divider()
         Button("Delete", role: .destructive) { model.delete(item) }
-    }
-}
-
-/// iOS-style edit-mode wobble; the seed offsets phase so neighbours don't move in lockstep.
-private struct Jiggle: ViewModifier {
-    let active: Bool
-    let seed: Int
-
-    func body(content: Content) -> some View {
-        if active {
-            TimelineView(.animation) { context in
-                let t = context.date.timeIntervalSinceReferenceDate
-                let phase = Double(seed % 5) * 1.3
-                content
-                    .rotationEffect(.degrees(sin(t * 2 * .pi * 3.2 + phase) * 1.4))
-                    .offset(y: sin(t * 2 * .pi * 2.6 + phase) * 0.8)
-            }
-        } else {
-            content
-        }
-    }
-}
-
-/// Neighbours lean slightly toward the selection (1 card away: 6°, 2 away: 3°).
-private struct Parallax: ViewModifier {
-    let offset: Int?
-
-    func body(content: Content) -> some View {
-        let d = offset ?? 0
-        let angle = d == 0 ? 0 : Double(d > 0 ? 1 : -1) * (abs(d) == 1 ? 6 : 3)
-        content
-            .rotation3DEffect(.degrees(angle), axis: (x: 0, y: 1, z: 0), anchor: d > 0 ? .leading : .trailing, perspective: 0.5)
-            .scaleEffect(d == 0 ? 1 : 0.985)
     }
 }
 

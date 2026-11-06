@@ -30,11 +30,8 @@ final class Preferences: ObservableObject {
     @Published var directPaste: Bool { didSet { d.set(directPaste, forKey: "directPaste") } }
     @Published var capturePaused: Bool { didSet { d.set(capturePaused, forKey: "capturePaused") } }
     @Published var smartActions: Bool { didSet { d.set(smartActions, forKey: "smartActions") } }
-    @Published var jiraBaseURL: String { didSet { d.set(jiraBaseURL, forKey: "jiraBaseURL") } }
-    // Appearance & motion (all on by default; all off = the 1.1 behaviour)
+    // Appearance & motion
     @Published var glideSelection: Bool { didSet { d.set(glideSelection, forKey: "glideSelection") } }
-    @Published var sweepSelection: Bool { didSet { d.set(sweepSelection, forKey: "sweepSelection") } }
-    @Published var parallax: Bool { didSet { d.set(parallax, forKey: "parallax") } }
     @Published var haptics: Bool { didSet { d.set(haptics, forKey: "haptics") } }
     /// Off by default: opening is instant. On: the first cards spring in one after another (~0.5 s).
     @Published var entranceAnimation: Bool { didSet { d.set(entranceAnimation, forKey: "entranceAnimation") } }
@@ -60,13 +57,12 @@ final class Preferences: ObservableObject {
             "maxItems": 1000, "maxDays": 30, "sensitiveMinutes": 10,
             "excludedBundleIDs": Self.defaultExcluded,
             "linkPreviews": true, "ocr": true, "directPaste": true, "capturePaused": false,
-            // Empty: Jira chips appear once you set your site in Settings. UI tests use a placeholder.
-            "smartActions": true, "jiraBaseURL": UITest.enabled ? "https://example.atlassian.net" : "",
-            "glideSelection": true, "sweepSelection": true, "parallax": true, "haptics": true, "entranceAnimation": false,
+            "smartActions": true,
+            "glideSelection": true, "haptics": true, "entranceAnimation": false,
             "doubleCtrlInPanel": true, "doubleCtrlGlobal": true, "hotkeyCyclesTabs": true, "searchEverywhere": true,
             // UI test runs stay silent; everyone else gets sounds at 40%.
             "soundsEnabled": !UITest.enabled, "soundVolume": 0.4, "soundCopy": true, "soundPaste": true, "soundDelete": true,
-            "soundCopyChoice": "wood-knock", "soundPasteChoice": "soft-pop", "soundDeleteChoice": "whoosh",
+            "soundCopyChoice": "paper-snap", "soundPasteChoice": "soft-thud", "soundDeleteChoice": "whoosh",
         ])
         maxItems = d.integer(forKey: "maxItems")
         maxDays = d.integer(forKey: "maxDays")
@@ -77,10 +73,7 @@ final class Preferences: ObservableObject {
         directPaste = d.bool(forKey: "directPaste")
         capturePaused = d.bool(forKey: "capturePaused")
         smartActions = d.bool(forKey: "smartActions")
-        jiraBaseURL = d.string(forKey: "jiraBaseURL") ?? ""
         glideSelection = d.bool(forKey: "glideSelection")
-        sweepSelection = d.bool(forKey: "sweepSelection")
-        parallax = d.bool(forKey: "parallax")
         haptics = d.bool(forKey: "haptics")
         entranceAnimation = d.bool(forKey: "entranceAnimation")
         doubleCtrlInPanel = d.bool(forKey: "doubleCtrlInPanel")
@@ -92,8 +85,8 @@ final class Preferences: ObservableObject {
         soundCopy = d.bool(forKey: "soundCopy")
         soundPaste = d.bool(forKey: "soundPaste")
         soundDelete = d.bool(forKey: "soundDelete")
-        soundCopyChoice = d.string(forKey: "soundCopyChoice") ?? "wood-knock"
-        soundPasteChoice = d.string(forKey: "soundPasteChoice") ?? "soft-pop"
+        soundCopyChoice = d.string(forKey: "soundCopyChoice") ?? "paper-snap"
+        soundPasteChoice = d.string(forKey: "soundPasteChoice") ?? "soft-thud"
         soundDeleteChoice = d.string(forKey: "soundDeleteChoice") ?? "whoosh"
     }
 }

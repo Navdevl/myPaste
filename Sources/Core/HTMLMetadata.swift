@@ -54,6 +54,22 @@ public struct HTMLMetadata: Equatable {
         return HTMLMetadata(title: title, imageURL: image, iconURL: icon)
     }
 
+    /// Where a "Redirecting…" stub page sends the browser: `<meta http-equiv="refresh" content="0; url=…">`
+    /// with a short delay. HTTP redirects are followed by URLSession; this is the HTML kind it can't see.
+    public static func refreshTarget(html fullHTML: String, base: URL) -> URL? {
+        let html = String(fullHTML.prefix(64_000))
+        for match in tagRegex.matches(in: html, range: NSRange(html.startIndex..., in: html)) {
+            guard let r = Range(match.range, in: html) else { continue }
+            let attrs = attributes(of: String(html[r]))
+            guard attrs["http-equiv"]?.lowercased() == "refresh", let content = attrs["content"] else { continue }
+            let parts = content.split(separator: ";", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            guard parts.count == 2, (Double(parts[0]) ?? 99) <= 5, parts[1].lowercased().hasPrefix("url=") else { continue }
+            let target = parts[1].dropFirst(4).trimmingCharacters(in: CharacterSet(charactersIn: " \"'"))
+            return resolve(target, base)
+        }
+        return nil
+    }
+
     static func attributes(of tag: String) -> [String: String] {
         var out: [String: String] = [:]
         for m in attrRegex.matches(in: tag, range: NSRange(tag.startIndex..., in: tag)) {

@@ -7,7 +7,6 @@ struct OnboardingView: View {
     var onFinish: () -> Void
     @State private var step = 0
     @State private var trusted = Paster.isTrusted
-    @State private var conflicts = ShortcutConflicts.current()
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     private let steps = 4
 
@@ -49,7 +48,6 @@ struct OnboardingView: View {
         )
         .onReceive(timer) { _ in
             trusted = Paster.isTrusted
-            if step == 2 { conflicts = ShortcutConflicts.current() }
         }
     }
 
@@ -105,16 +103,6 @@ struct OnboardingView: View {
             VStack(spacing: 10) {
                 HStack { Text("Open myPaste").frame(width: 140, alignment: .leading); ShortcutRecorder(name: .openPanel) }
             }
-            ForEach(conflicts) { c in
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    Text("\(c.name) is running and may grab \"Open myPaste\".").font(.callout)
-                    Button("Quit \(c.name)") { c.app.terminate() }
-                }
-            }
-            if conflicts.isEmpty {
-                Label("No conflicts with other clipboard apps", systemImage: "checkmark.circle").foregroundStyle(.secondary)
-            }
         }
     }
 
@@ -125,7 +113,7 @@ struct OnboardingView: View {
             Text("Copy anything, then press \(KeyboardShortcuts.getShortcut(for: .openPanel)?.description ?? "⇧⌘C").")
                 .font(.title3).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 8) {
-                tip("hold ⌘", "shows every shortcut and lets you delete cards")
+                tip("⌘/", "shows every shortcut (or click the keyboard icon)")
                 tip("hold ⇧", "pastes without formatting")
                 tip("⌘K", "formats JSON, cleans URLs, converts timestamps…")
                 tip("/img @slack #tag", "filter while you search")

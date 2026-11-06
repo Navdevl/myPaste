@@ -172,12 +172,10 @@ final class PanelController: NSObject, NSWindowDelegate {
     private static func digit(_ ch: String, _ code: Int) -> Int? {
         (ch.count == 1 ? Int(ch) : nil) ?? digitKeys[code]
     }
-    /// How long ⌘ must be held alone before edit mode (jiggle, ✕, badges, shortcut bar) appears.
+    /// How long ⇧ must be held alone before plain-text mode starts.
     private static let holdDelay: TimeInterval = 0.5
 
-    private var holdTimer: Timer?
     private var shiftTimer: Timer?
-    private var optionTimer: Timer?
 
     private func installKeyMonitor() {
         removeKeyMonitor()
@@ -185,10 +183,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             guard let self, event.window === self.panel || event.window === nil else { return event }
             if event.type == .flagsChanged { self.flagsChanged(event); return event }
             guard event.window === self.panel else { return event }
-            // A chord started before the hold delay: it's a shortcut, not a request for hints.
-            self.holdTimer?.invalidate()
+            // A chord started before the hold delay: it's a shortcut, not a request for plain mode.
             self.shiftTimer?.invalidate()
-            self.optionTimer?.invalidate()
             return self.handle(event) ? nil : event
         }
     }
@@ -196,9 +192,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private func removeKeyMonitor() {
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
         keyMonitor = nil
-        holdTimer?.invalidate()
         shiftTimer?.invalidate()
-        if model.editMode { setEditMode(false) }
         model.plainMode = false
     }
 
@@ -214,30 +208,6 @@ final class PanelController: NSObject, NSWindowDelegate {
             shiftTimer?.invalidate()
             if model.plainMode { withAnimation(.easeOut(duration: 0.15)) { model.plainMode = false } }
         }
-        // ⌥ alone, held: show the ⌥0–9 numbers on the tabs.
-        if flags == .option {
-            if !model.optionHints, optionTimer?.isValid != true {
-                optionTimer = Timer.scheduledTimer(withTimeInterval: Self.holdDelay * 0.8, repeats: false) { [weak self] _ in
-                    withAnimation(.easeOut(duration: 0.15)) { self?.model.optionHints = true }
-                }
-            }
-        } else {
-            optionTimer?.invalidate()
-            if model.optionHints { withAnimation(.easeOut(duration: 0.12)) { model.optionHints = false } }
-        }
-        if flags.contains(.command) {
-            guard !model.editMode, holdTimer?.isValid != true, model.editor == nil else { return }
-            holdTimer = Timer.scheduledTimer(withTimeInterval: Self.holdDelay, repeats: false) { [weak self] _ in
-                self?.setEditMode(true)
-            }
-        } else {
-            holdTimer?.invalidate()
-            if model.editMode { setEditMode(false) }
-        }
-    }
-
-    private func setEditMode(_ on: Bool) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { model.editMode = on }
     }
 
     /// Returns true when the key was consumed. Keys not handled here fall through to the search field,
@@ -255,7 +225,15 @@ final class PanelController: NSObject, NSWindowDelegate {
 
         switch (code, flags) {
         case (kVK_Escape, _):
-            if model.quickLookID != nil { model.quickLookID = nil } else if !model.search.isEmpty { model.search = "" } else { hide() }
+            if model.quickLookID != nil { model.quickLookID = nil }
+            else if model.showKeys { withAnimation(.easeOut(duration: 0.15)) { model.showKeys = false } }
+            else if !model.search.isEmpty { model.search = "" }
+            else { hide() }
+            return true
+
+        // ⌘/ : show or hide the shortcut bar
+        case (kVK_ANSI_Slash, .command):
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { model.showKeys.toggle() }
             return true
 
         // Selection and tabs

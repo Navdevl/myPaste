@@ -7,36 +7,15 @@ import MyPasteCore
 // installed copy around it. The terminal running this needs Accessibility permission (it already
 // does if `make uitest` can type into apps).
 //
-// Usage: myPasteUITests <path/to/myPaste.app> [<path/to/FakeMaccy.app>]
+// Usage: myPasteUITests <path/to/myPaste.app>
 
 setvbuf(stdout, nil, _IONBF, 0)
 let args = CommandLine.arguments
-guard args.count >= 2 else { print("usage: myPasteUITests <myPaste.app> [FakeMaccy.app]"); exit(2) }
+guard args.count >= 2 else { print("usage: myPasteUITests <myPaste.app>"); exit(2) }
 let appBundle = URL(fileURLWithPath: args[1])
-let fakeMaccy = args.count > 2 ? URL(fileURLWithPath: args[2]) : nil
 let work = FileManager.default.temporaryDirectory.appendingPathComponent("mypaste-uitest-\(UUID().uuidString)")
 let dataDir = work.appendingPathComponent("data")
 let exportURL = work.appendingPathComponent("export.mypaste")
-let maccyStore = work.appendingPathComponent("maccy/Storage.sqlite")
-
-/// A tiny store with Maccy 2.x's schema (two pins, one unpinned) built with the sqlite3 CLI.
-func makeFakeMaccyStore() throws {
-    try FileManager.default.createDirectory(at: maccyStore.deletingLastPathComponent(), withIntermediateDirectories: true)
-    let sql = """
-    CREATE TABLE ZHISTORYITEM (Z_PK INTEGER PRIMARY KEY, Z_ENT INTEGER, Z_OPT INTEGER, ZNUMBEROFCOPIES INTEGER, ZFIRSTCOPIEDAT TIMESTAMP, ZLASTCOPIEDAT TIMESTAMP, ZAPPLICATION VARCHAR, ZPIN VARCHAR, ZTITLE VARCHAR);
-    CREATE TABLE ZHISTORYITEMCONTENT (Z_PK INTEGER PRIMARY KEY, Z_ENT INTEGER, Z_OPT INTEGER, ZITEM INTEGER, ZTYPE VARCHAR, ZVALUE BLOB);
-    INSERT INTO ZHISTORYITEM VALUES (1,1,1,1,799926848,799926848,'com.apple.Notes','b','a');
-    INSERT INTO ZHISTORYITEM VALUES (2,1,1,1,799926848,799926848,'com.apple.Notes','o','b');
-    INSERT INTO ZHISTORYITEM VALUES (3,1,1,1,799926848,799926848,'com.apple.Notes',NULL,'c');
-    INSERT INTO ZHISTORYITEMCONTENT VALUES (1,2,1,1,'public.utf8-plain-text',CAST('[uitest] maccy pin one' AS BLOB));
-    INSERT INTO ZHISTORYITEMCONTENT VALUES (2,2,1,2,'public.utf8-plain-text',CAST('[uitest] maccy pin two' AS BLOB));
-    INSERT INTO ZHISTORYITEMCONTENT VALUES (3,2,1,3,'public.utf8-plain-text',CAST('[uitest] maccy unpinned' AS BLOB));
-    """
-    let p = Process()
-    p.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
-    p.arguments = [maccyStore.path, sql]
-    try p.run(); p.waitUntilExit()
-}
 
 // MARK: Tiny test framework
 
@@ -153,23 +132,6 @@ func key(_ code: CGKeyCode, _ flags: CGEventFlags = []) async {
     await sleep(0.15)
 }
 
-/// Holds ⌘ or ⇧ for `seconds`, runs `body`, then releases. Uses System Events: synthetic CGEvents from a
-/// .hidSystemState source get their modifier flags overwritten by the real (unpressed) keyboard state.
-@MainActor
-func hold(_ modifier: String, for seconds: Double, while body: () async -> Void) async {
-    func se(_ cmd: String) {
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        p.arguments = ["-e", "tell application \"System Events\" to \(cmd)"]
-        try? p.run(); p.waitUntilExit()
-    }
-    se("key down \(modifier)")
-    await sleep(seconds)
-    await body()
-    se("key up \(modifier)")
-    await sleep(0.3)
-}
-
 enum K {
     static let ret: CGKeyCode = 36, esc: CGKeyCode = 53, space: CGKeyCode = 49, right: CGKeyCode = 124
     static let delete: CGKeyCode = 51, two: CGKeyCode = 19, j: CGKeyCode = 38, k: CGKeyCode = 40, z: CGKeyCode = 6, o: CGKeyCode = 31
@@ -243,14 +205,12 @@ func runAll() async {
         exit(2)
     }
     try? FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
-    try? makeFakeMaccyStore()
     let savedClipboard = NSPasteboard.general.string(forType: .string)
 
     let config = NSWorkspace.OpenConfiguration()
     config.environment = ["MYPASTE_UITEST": "1", "MYPASTE_DATA_DIR": dataDir.path,
                           "MYPASTE_UITEST_SAVE": exportURL.path, "MYPASTE_UITEST_OPEN": exportURL.path,
-                          "MYPASTE_UITEST_MACCY": maccyStore.path,
-                          "MYPASTE_UITEST_SOUNDFILE": appBundle.appendingPathComponent("Contents/Resources/Sounds/chime.wav").path]
+                          "MYPASTE_UITEST_SOUNDFILE": appBundle.appendingPathComponent("Contents/Resources/Sounds/soft-pop.wav").path]
     config.arguments = [] // the app uses a wiped "local.mypaste.uitest" defaults domain in test mode
     config.createsNewApplicationInstance = true
     config.activates = false
@@ -287,12 +247,13 @@ func runAll() async {
               "pretty JSON pasted (got \"\(textView.string.prefix(60))\")")
     }
 
-    await test("smart chip: ⌘J opens the Jira key") {
+    await test("smart chip: ⌘J opens a GitHub PR") {
         openedURLs.removeAll()
-        await copy("[uitest] please look at ABC-1234 today")
+        await copy("https://github.com/swiftlang/swift/pull/456")
         check(await openPanel(), "strip is visible")
         await key(K.j, .maskCommand)
-        check(await waitFor { openedURLs.contains("https://example.atlassian.net/browse/ABC-1234") }, "Jira URL opened (got \(openedURLs))")
+        check(await waitFor { openedURLs.contains("https://github.com/swiftlang/swift/pull/456") }, "PR URL opened (got \(openedURLs))")
+        await closePanel()
     }
 
     await test("smart chip button is pressable via accessibility") {
@@ -312,14 +273,19 @@ func runAll() async {
         check(await waitFor { openedURLs.contains("https://example.com/pricing") }, "link opened (got \(openedURLs))")
     }
 
-    await test("hold ⌘ shows the shortcut bar, release hides it") {
+    await test("shortcut hint: the keyboard button and ⌘/ toggle the shortcut bar; Esc hides it first") {
         check(await openPanel(), "strip is visible")
-        await hold("command", for: 0.9) {
-            let bar = await element("shortcut.bar", timeout: 1.5)
-            check(bar != nil, "shortcut bar visible while ⌘ held")
-            if bar == nil { dumpIDs() }
-        }
-        check(elements("shortcut.bar").isEmpty, "shortcut bar gone after release")
+        check(elements("shortcut.bar").isEmpty, "bar hidden by default")
+        guard let button = await element("keys.hint", timeout: 3) else { check(false, "keyboard hint button found"); return }
+        check(button.press(), "hint button pressed")
+        check(await element("shortcut.bar", timeout: 1.5) != nil, "bar shown after the click")
+        check(button.press(), "hint button pressed again")
+        check(await waitFor(1.5) { elements("shortcut.bar").isEmpty }, "bar hidden after the second click")
+        await key(44, .maskCommand) // ⌘/
+        check(await element("shortcut.bar", timeout: 1.5) != nil, "⌘/ shows the bar")
+        await key(K.esc)
+        check(await waitFor(1.5) { elements("shortcut.bar").isEmpty }, "Esc hides the bar")
+        check(elements("strip").count > 0, "the strip stayed open after that Esc")
         await closePanel()
     }
 
@@ -371,7 +337,7 @@ func runAll() async {
         await sleep(0.6)
     }
 
-    await test("boards: ⌘P creates one; ⇧⌘C again and ⌃Tab cycle tabs; hold ⌥ shows numbers") {
+    await test("boards: ⌘P creates one; ⇧⌘C again and ⌃Tab cycle tabs") {
         await copy("[uitest] board cycling")
         check(await openPanel(), "strip is visible")
         await key(35, .maskCommand) // ⌘P → pins to a new "Pinned" board
@@ -383,13 +349,6 @@ func runAll() async {
         check(await waitFor(2) { activeTab() == "History" }, "⌃Tab wrapped to History (got \(activeTab() ?? "nil"))")
         await key(48, [.maskControl, .maskShift])
         check(await waitFor(2) { activeTab() == "Pinned" }, "⌃⇧Tab went back to Pinned (got \(activeTab() ?? "nil"))")
-        systemEvents(["key down option"])
-        await sleep(0.9)
-        let labels = elements("tab.History").map { [text(of: $0), $0.title ?? "", $0.description ?? ""].joined(separator: " ") }
-        check(labels.contains { $0.contains("⌥0") }, "⌥ held shows tab numbers (History label: \(labels))")
-        systemEvents(["key up option"])
-        await sleep(0.4)
-        check(!elements("tab.History").contains { text(of: $0).contains("⌥") || ($0.description ?? "").contains("⌥") }, "numbers hidden after ⌥ released")
         await closePanel()
     }
 
@@ -457,24 +416,9 @@ func runAll() async {
         check(await waitFor(5) { elements("backup.status").contains { text(of: $0).contains("already here") } }, "import reports duplicates")
     }
 
-    await test("Settings → Backup: Import Pins from Maccy") {
-        post("local.mypaste.uitest.settings", "backup")
-        guard let button = await element("backup.maccy", timeout: 5) else { check(false, "Maccy import button shown"); return }
-        check(button.press(), "Import pressed")
-        let ok = await waitFor(5) {
-            guard let board = (try? store.pinboards())?.first(where: { $0.name == "Maccy" }) else { return false }
-            let pinned = items().filter { $0.pinboardIDs.contains(board.id) }.compactMap(\.text)
-            return Set(pinned) == ["[uitest] maccy pin one", "[uitest] maccy pin two"]
-        }
-        check(ok, "both pins on a Maccy board, unpinned item skipped")
-        check(await waitFor(3) { elements("backup.status").contains { text(of: $0).contains("Imported 2 pins") } }, "status reports 2 imported")
-        _ = (await element("backup.maccy"))?.press()
-        check(await waitFor(3) { elements("backup.status").contains { text(of: $0).contains("2 already here") } }, "re-run imports nothing new")
-    }
-
     await test("Settings → Appearance: sound pack, Play buttons and a custom file") {
         let bundled = (try? FileManager.default.contentsOfDirectory(atPath: appBundle.appendingPathComponent("Contents/Resources/Sounds").path)) ?? []
-        check(bundled.filter { $0.hasSuffix(".wav") }.count == 15, "15 sounds bundled (got \(bundled.count))")
+        check(bundled.filter { $0.hasSuffix(".wav") }.count == 6, "6 sounds bundled (got \(bundled.count))")
         post("local.mypaste.uitest.settings", "appearance")
         guard let toggle = await element("appearance.sounds", timeout: 5) else { check(false, "sounds switch found"); return }
         check(toggle.press(), "sounds switched on")
@@ -487,28 +431,13 @@ func runAll() async {
         check(choose.press(), "Choose… pressed")
         let custom = dataDir.appendingPathComponent("sounds/custom-copy.wav")
         check(await waitFor(3) { FileManager.default.fileExists(atPath: custom.path) }, "custom file copied into the data folder")
-        check(await waitFor(3) { elements("appearance.sound.copy.menu").contains { text(of: $0).contains("chime.wav") } },
+        check(await waitFor(3) { elements("appearance.sound.copy.menu").contains { text(of: $0).contains("soft-pop.wav") } },
               "copy menu now shows the custom file (got \(elements("appearance.sound.copy.menu").map { text(of: $0) }))")
         await copy("[uitest] sound on copy") // plays the chosen sound through the real capture path
         await sleep(0.5)
         let log = (try? String(contentsOf: dataDir.appendingPathComponent("logs/myPaste.log"), encoding: .utf8)) ?? ""
         check(!log.contains("Can't play sound") && !log.contains("Custom sound rejected"), "no playback errors in the log")
         check(!launched.isTerminated, "app still running after playing sounds")
-    }
-
-    await test("Settings → Shortcuts: conflict Quit button quits the clashing app") {
-        guard let fake = fakeMaccy else { print("    (skipped: no FakeMaccy.app given)"); return }
-        let real = NSRunningApplication.runningApplications(withBundleIdentifier: "org.p0deje.Maccy")
-        guard real.isEmpty else { print("    (skipped: real Maccy is running; not quitting it)"); return }
-        let cfg = NSWorkspace.OpenConfiguration()
-        cfg.activates = false
-        cfg.createsNewApplicationInstance = true
-        let fakeApp = try await NSWorkspace.shared.openApplication(at: fake, configuration: cfg)
-        await sleep(1)
-        post("local.mypaste.uitest.settings", "shortcuts")
-        guard let quit = await element("conflict.quit", timeout: 5) else { check(false, "conflict shown with Quit button"); fakeApp.terminate(); return }
-        check(quit.press(), "Quit pressed")
-        check(await waitFor(5) { fakeApp.isTerminated }, "clashing app terminated")
     }
 
     // Teardown

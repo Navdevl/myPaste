@@ -32,26 +32,17 @@ final class AppModel: ObservableObject {
     @Published var search = "" { didSet { if search != oldValue { recompute(resetSelection: true) } } }
     @Published var kindFilter: KindFilter = .all { didSet { if kindFilter != oldValue { recompute(resetSelection: true) } } }
     @Published var appFilter: String? { didSet { if appFilter != oldValue { recompute(resetSelection: true) } } }
-    @Published var selectedID: Int64? {
-        didSet {
-            guard selectedID != oldValue else { return }
-            selectedIndex = selectedID.flatMap { id in visible.firstIndex { $0.id == id } }
-        }
-    }
-    /// Index of the selection in `visible`, cached for parallax (cards read it on every render).
-    @Published private(set) var selectedIndex: Int?
+    @Published var selectedID: Int64?
     @Published var editor: Editor?
     @Published var quickLookID: Int64?
     @Published var hoveredID: Int64?
     @Published var now = Date()
     /// Bumped each time the panel opens so the search field re-takes focus.
     @Published var focusToken = 0
-    /// Hold-⌘ mode: cards jiggle, show ✕ and ⌘N badges, shortcut bar visible.
-    @Published var editMode = false
+    /// The shortcut bar, toggled by the keyboard button in the top bar or ⌘/.
+    @Published var showKeys = false
     /// Hold-⇧ mode: every paste path (↩, ⌘1–9, double-click) drops formatting.
     @Published var plainMode = false
-    /// Hold-⌥: tabs show their ⌥0–9 jump numbers.
-    @Published var optionHints = false
     /// Bumped on every open; cards use it to run the staggered entrance.
     @Published var entranceToken = 0
     private(set) var shownAt = Date.distantPast
@@ -78,7 +69,7 @@ final class AppModel: ObservableObject {
               [.text, .richText, .code, .link, .color].contains(item.kind) else { return [] }
         let key = item.contentHash
         if let cached = chipCache[key] { return cached }
-        let chips = SmartDetector.chips(for: text, jiraBase: URL(string: prefs.jiraBaseURL))
+        let chips = SmartDetector.chips(for: text)
         chipCache[key] = chips
         return chips
     }
@@ -167,7 +158,6 @@ final class AppModel: ObservableObject {
             list = list.filter { ids.contains($0.id) }
         }
         visible = list
-        selectedIndex = selectedID.flatMap { id in list.firstIndex { $0.id == id } }
         if resetSelection || selectedID == nil || !list.contains(where: { $0.id == selectedID }) {
             selectedID = list.first?.id
         }
@@ -182,7 +172,7 @@ final class AppModel: ObservableObject {
     /// All user-driven selection changes go through here: glide animation + haptic tick when enabled.
     func select(_ id: Int64?) {
         guard id != selectedID else { return }
-        if prefs.glideSelection || prefs.parallax {
+        if prefs.glideSelection {
             withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) { selectedID = id }
         } else {
             selectedID = id
@@ -225,9 +215,8 @@ final class AppModel: ObservableObject {
         now = Date()
         editor = nil
         quickLookID = nil
-        editMode = false
+        showKeys = false
         plainMode = false
-        optionHints = false
         if !search.isEmpty { search = "" }
         recompute(resetSelection: true)
         focusToken += 1

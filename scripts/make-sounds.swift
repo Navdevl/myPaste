@@ -111,16 +111,6 @@ try write("glass-tick", finish(reverb(render(0.16) { t, _, n in
     modal(t, [(2637, 1, 60), (5274 * 1.013, 0.35, 90), (7350, 0.18, 140), (11_200, 0.06, 260)]) + n.next() * exp(-t * 2500) * 0.15
 }, mix: 0.18)))
 
-// Bubble: a sine whose pitch rises fast, like a drop of air surfacing.
-try write("bubble", finish(reverb({
-    var phase = 0.0
-    return render(0.09) { t, _, _ in
-        let f = 380 + 900 * (1 - exp(-t * 55))
-        phase += 2 * .pi * f / rate
-        return sin(phase) * sin(.pi * min(1, t / 0.09)) * exp(-t * 18)
-    }
-}(), mix: 0.1)))
-
 // Paper snap: a crisp band-passed noise burst, like a page flick.
 try write("paper-snap", finish({
     var f = SVF()
@@ -129,27 +119,6 @@ try write("paper-snap", finish({
         return f.process(x, cutoff: 3600 - 1500 * t / 0.07, q: 1.6).band
     }
 }()))
-
-// Marimba: a mallet on a wooden bar: fundamental + tuned 4th harmonic, soft attack.
-try write("marimba", finish(reverb(render(0.25) { t, _, n in
-    let mallet = n.next() * exp(-t * 3000) * 0.2
-    return modal(t, [(1046.5, 1, 22), (4186, 0.25, 55), (2793, 0.08, 40)]) * (1 - exp(-t * 900)) + mallet
-}, mix: 0.15)))
-
-// Mechanical key: a deep "thock" body + bright switch click, like a good keyboard.
-try write("soft-key", finish(reverb({
-    var f = SVF()
-    return render(0.09) { t, _, n in
-        let thock = sin(2 * .pi * (190 - 60 * min(1, t / 0.02)) * t) * exp(-t * 70)
-        let click = f.process(n.next() * exp(-t * 900), cutoff: 4200, q: 1.2).band
-        return thock * 0.9 + click * 0.6
-    }
-}(), mix: 0.08, size: 0.5)))
-
-// Classic tick (the 1.3.0 sound, kept as an option).
-try write("classic-tick", finish(render(0.03) { t, _, n in
-    sin(2 * .pi * 3200 * t) * exp(-t * 180) * 0.55 + n.next() * exp(-t * 900) * 0.25
-}))
 
 // MARK: Paste sounds (confirming, a touch rounder)
 
@@ -161,27 +130,6 @@ try write("soft-pop", finish({
     }
 }()))
 
-// Water drop: pitch falls then "plinks" up, the classic droplet shape.
-try write("water-drop", finish(reverb({
-    var phase = 0.0
-    return render(0.14) { t, _, _ in
-        let f = t < 0.03 ? 1400 - 900 * t / 0.03 : 500 + 1300 * (t - 0.03) / 0.11
-        phase += 2 * .pi * f / rate
-        return sin(phase) * exp(-t * 26) * min(1, t / 0.002)
-    }
-}(), mix: 0.2)))
-
-// Two-note chime (perfect fifth), short and bright.
-try write("chime", finish(reverb(render(0.45) { t, _, _ in
-    let a = modal(t, [(1318.5, 1, 9), (2637, 0.2, 16)])
-    let b = t > 0.06 ? modal(t - 0.06, [(1975.5, 0.9, 10), (3951, 0.15, 18)]) : 0
-    return (a + b) * min(1, t / 0.003)
-}, mix: 0.22)))
-
-try write("thock", finish(reverb(render(0.11) { t, _, n in
-    sin(2 * .pi * (150 - 40 * min(1, t / 0.03)) * t) * exp(-t * 45) + n.next() * exp(-t * 1200) * 0.3
-}, mix: 0.1, size: 0.5)))
-
 // MARK: Delete sounds (low, soft, clearly "gone")
 
 try write("whoosh", finish({
@@ -191,28 +139,6 @@ try write("whoosh", finish({
         let air = f.process(n.next(), cutoff: 2600 - 2000 * p, q: 0.9).low
         phase += 2 * .pi * (420 - 260 * p) / rate
         return (air * 1.4 + sin(phase) * 0.12) * sin(.pi * min(1, p * 1.15)) * (1 - p * 0.4)
-    }
-}()))
-
-// Crumple: a few grains of filtered noise, like scrunching paper.
-try write("crumple", finish({
-    var f = SVF()
-    let grains: [(at: Double, len: Double, amp: Double)] = [(0, 0.03, 1), (0.035, 0.025, 0.8), (0.07, 0.04, 0.9), (0.12, 0.03, 0.55), (0.16, 0.05, 0.4)]
-    return render(0.22) { t, _, n in
-        let env = grains.reduce(0.0) { acc, g in
-            let x = t - g.at
-            return acc + (x >= 0 && x < g.len ? g.amp * sin(.pi * x / g.len) : 0)
-        }
-        return f.process(n.next() * env, cutoff: 2400, q: 0.8).band
-    }
-}()))
-
-// Swipe: a highpass noise sweep, quick and modern.
-try write("swipe", finish({
-    var f = SVF()
-    return render(0.16) { t, _, n in
-        let p = t / 0.16
-        return f.process(n.next(), cutoff: 600 + 5400 * p, q: 1.1).band * sin(.pi * p)
     }
 }()))
 

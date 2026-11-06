@@ -5,10 +5,9 @@
 | Key | Action |
 | --- | --- |
 | ⇧⌘C | Open / close the strip |
-| hold ⌘ | Edit mode: cards jiggle, ✕ delete buttons, ⌘1–9 badges, shortcut bar |
+| ⌘/ or the ⌨ button | Show / hide the shortcut bar |
 | ← → / ↑ ↓ | Select card / switch History and pinboard tabs |
 | ⇧⌘C again, ⌃Tab / ⌃⇧Tab | Next / previous board |
-| hold ⌥ | Show ⌥0–9 board numbers |
 | ⌃⌃ (double-tap Control) | Pin picker for the selected card; outside the strip, for your latest copy |
 | ⌘↑ ⌘↓ (Home/End) | First / last card |
 | Tab / ⇧Tab | Cycle the type filter |
@@ -22,12 +21,13 @@
 | ⌘O | Open link / show file in Finder |
 | ⌘C / ⌥⌘C | Copy / copy as plain text, without pasting |
 | ⌘I | Info |
-| ⌘J | Smart action: open Jira key / GitHub PR, decode JWT, convert timestamp |
+| ⌘J | Smart action: open a GitHub PR or issue, decode a JWT, convert a timestamp |
 | ⌘K | Actions: JSON/SQL formatting, text cleanup, case, URL cleanup, encode/decode, hashes, epoch ↔ IST |
 | ⌘R ⌘T ⌘E | Rename / tags / edit text |
 | ⌘N | New pinboard |
 
 Hold ⇧ in the strip for plain-text mode: ↩, ⌘1–9 and double-click all paste without formatting.
+Hover a card to get its ✕ delete button and ⌘1–9 badge; the smart-action chip shows its ⌘J key.
 Drag a card onto a pinboard tab to pin it. Right-click a card for everything else.
 
 ## Search
@@ -54,6 +54,5 @@ unless pinned, and you can still find them by searching for what they are ("ifsc
 
 ## Everything else
 
-- **Sounds:** Settings → Appearance → Sounds. Pick from the built-in pack or use your own audio file.
+- **Sounds:** Settings → Appearance → Sounds. Pick from six built-in sounds or use your own audio file.
 - **Backup:** Settings → Backup exports your pinboards (optionally history) as a `.mypaste` file. Sensitive items are never exported.
-- **Coming from Maccy:** Settings → Backup → Import Pins from Maccy copies its pinned items onto a "Maccy" pinboard.

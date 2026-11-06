@@ -2,6 +2,20 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
+## 1.7.0 (2026-11-06)
+
+Removed
+- Jira smart action (and its Settings field). JWT, GitHub PR, timestamp, UUID, JSON/SQL and colour chips stay.
+- Maccy import (Settings → Backup → From Maccy) and the Maccy-specific code. Pins you already imported stay.
+- The shortcut-clash warning, in Settings, onboarding and at launch.
+- Hold-⌘ edit mode (jiggle) and hold-⌥ board numbers; light sweep and neighbour parallax.
+- 9 of the 15 bundled sounds. The six left are Paper Snap, Wood Knock, Glass Tick (copy), Soft Thud, Soft Pop (paste) and Whoosh (delete). Defaults are now Paper Snap / Soft Thud / Whoosh; anyone who had a removed sound selected gets the default.
+
+Changed
+- The shortcut bar is now one click or ⌘/ away: a keyboard button in the top bar (Esc closes it first).
+- Hovering a card shows its ✕ delete button and ⌘1–9 badge (the selected card shows its badge too); the smart-action chip shows ⌘J on the selected or hovered card.
+- Link previews follow "Redirecting…" stub pages (meta refresh), so the card shows the real page's title.
+
 ## 1.6.2 (2026-11-06)
 
 - Opening the strip is faster. The staggered card entrance (the first ten cards springing in 35 ms apart, about half a second) is now off by default; turn it back on in Settings → Appearance → Opening the strip. The slide and fade are also shorter (0.13 s and 0.09 s, from 0.2 s and 0.16 s).

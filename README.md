@@ -18,7 +18,7 @@ Press **⇧⌘C** and your recent copies slide up as cards. Pick one and it's pa
 - **Keeps secrets quiet:** OTPs, API keys and ID numbers are masked and cleared after a few minutes.
 - **Small conveniences:** format JSON or SQL, clean up URLs and convert timestamps with ⌘K.
 
-Hold **⌘** while the strip is open to see every shortcut. The full list is in [docs/SHORTCUTS.md](docs/SHORTCUTS.md).
+Click the keyboard icon in the strip (or press **⌘/**) to see every shortcut. The full list is in [docs/SHORTCUTS.md](docs/SHORTCUTS.md).
 
 <img src="docs/screenshots/settings.png" alt="myPaste Settings" width="560">
 

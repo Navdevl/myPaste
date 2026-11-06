@@ -31,7 +31,6 @@ let package = Package(
             name: "myPasteUITests",
             dependencies: ["MyPasteCore"],
             path: "Tests/UITests",
-            exclude: ["FakeMaccy"],
             swiftSettings: swift5
         ),
         .testTarget(

@@ -6,10 +6,13 @@ enum UITest {
     static let enabled = ProcessInfo.processInfo.environment["MYPASTE_UITEST"] == "1"
     static var saveURL: URL? { url("MYPASTE_UITEST_SAVE") }
     static var openURL: URL? { url("MYPASTE_UITEST_OPEN") }
-    static var maccyStore: URL? { url("MYPASTE_UITEST_MACCY") }
     static var soundFile: URL? { url("MYPASTE_UITEST_SOUNDFILE") }
     /// Opens and closes the strip this many times on its own (for timing runs; a notification would
     /// reach every running copy of myPaste, including your real one).
+    /// Opens Settings on this pane shortly after launch (for screenshots).
+    static var autoSettingsPane: SettingsView.Pane? {
+        enabled ? ProcessInfo.processInfo.environment["MYPASTE_UITEST_AUTOSETTINGS"].flatMap(SettingsView.Pane.init(rawValue:)) : nil
+    }
     static var autoToggles: Int { enabled ? Int(ProcessInfo.processInfo.environment["MYPASTE_UITEST_AUTOTOGGLE"] ?? "") ?? 0 : 0 }
 
     private static func url(_ key: String) -> URL? {

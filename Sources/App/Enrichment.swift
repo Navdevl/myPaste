@@ -82,13 +82,18 @@ final class Enrichment {
         return URLSession(configuration: config)
     }()
 
-    private static func scrape(_ url: URL) async -> HTMLMetadata? {
+    private static func scrape(_ url: URL, hops: Int = 3) async -> HTMLMetadata? {
         // One bulk read: AsyncBytes' per-byte iteration took 5–15 s on pages like GitHub's.
         guard let (data, response) = try? await session.data(from: url),
               let http = response as? HTTPURLResponse, (200..<400).contains(http.statusCode),
               http.mimeType?.contains("html") ?? true, data.count < 8_000_000 else { return nil }
         let html = String(data: data, encoding: .utf8) ?? String(decoding: data, as: UTF8.self)
-        return HTMLMetadata.parse(html: html, base: http.url ?? url)
+        let final = http.url ?? url
+        // "Redirecting…" stub pages (a meta refresh): preview where they lead, not the stub.
+        if hops > 0, let next = HTMLMetadata.refreshTarget(html: html, base: final), next != final {
+            return await scrape(next, hops: hops - 1) ?? HTMLMetadata.parse(html: html, base: final)
+        }
+        return HTMLMetadata.parse(html: html, base: final)
     }
 
     private static func downloadImage(_ url: URL?, maxSide: CGFloat) async -> Data? {

@@ -3,7 +3,7 @@ import Foundation
 /// Context-aware suggestions shown as a chip on the card and as "Suggested" in ⌘K.
 public struct SmartChip: Equatable {
     public enum Action: Equatable {
-        /// Open in the browser (Jira issue, GitHub PR).
+        /// Open in the browser (GitHub PR or issue).
         case open(URL)
         /// Produce text the user can paste or save (decoded JWT, converted timestamp).
         case text(String)
@@ -18,17 +18,11 @@ public struct SmartChip: Equatable {
 }
 
 public enum SmartDetector {
-    /// Uppercase-dash-number words that are not issue keys.
-    private static let notJiraPrefixes: Set<String> = [
-        "UTF", "SHA", "ISO", "RFC", "COVID", "MD", "AES", "RSA", "HTTP", "TLS", "SSL", "CVE", "PCI", "IPV", "MP", "H", "X",
-        "GPT", "ES", "ECMA", "WCAG", "AWS", "GCP", "EC", "T", "V", "IP", "PORT", "Q", "FY", "COVID", "PEP", "BIP", "EIP",
-    ]
-    private static let jiraRegex = try! NSRegularExpression(pattern: #"(?<![A-Za-z0-9-])([A-Z][A-Z0-9]{1,9})-(\d{1,6})(?![A-Za-z0-9-])"#)
     private static let uuidRegex = try! NSRegularExpression(pattern: #"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-([1-8])[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"#)
     private static let githubRegex = try! NSRegularExpression(pattern: #"https?://github\.com/([\w.-]+)/([\w.-]+)/(pull|issues)/(\d+)"#)
     private static let jwtRegex = try! NSRegularExpression(pattern: #"^eyJ[A-Za-z0-9_\-]+\.eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*$"#)
 
-    public static func chips(for raw: String, jiraBase: URL?, now: Date = Date()) -> [SmartChip] {
+    public static func chips(for raw: String, now: Date = Date()) -> [SmartChip] {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, text.count < 100_000 else { return [] }
         var out: [SmartChip] = []
@@ -56,14 +50,6 @@ public enum SmartDetector {
                                  label: ref, title: "Open \(text[kind] == "pull" ? "PR" : "issue") \(ref)", action: .open(url)))
         }
 
-        if let base = jiraBase {
-            var seen = Set<String>()
-            for key in jiraKeys(in: text) where seen.insert(key).inserted && seen.count <= 3 {
-                out.append(SmartChip(symbol: "ticket", label: key, title: "Open \(key) in Jira",
-                                     action: .open(base.appendingPathComponent("browse").appendingPathComponent(key))))
-            }
-        }
-
         let t = text.first
         if t == "{" || t == "[", !text.contains("\n"), let pretty = Transform.all.first(where: { $0.id == "json.pretty" })?.apply(text) {
             out.append(SmartChip(symbol: "curlybraces", label: "Pretty JSON", title: "Pretty-print JSON", action: .text(pretty)))
@@ -79,15 +65,6 @@ public enum SmartDetector {
             out.append(SmartChip(symbol: "paintpalette", label: converted, title: "Convert to \(converted)", action: .text(converted)))
         }
         return out
-    }
-
-    public static func jiraKeys(in text: String) -> [String] {
-        jiraRegex.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { m in
-            guard let p = Range(m.range(at: 1), in: text), let r = Range(m.range, in: text) else { return nil }
-            let prefix = String(text[p])
-            guard !notJiraPrefixes.contains(prefix), prefix.contains(where: \.isLetter) else { return nil }
-            return String(text[r])
-        }
     }
 
     private static func shortIST(_ digits: String) -> String? {

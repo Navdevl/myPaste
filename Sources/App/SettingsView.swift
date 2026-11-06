@@ -211,14 +211,8 @@ private struct GeneralPane: View {
             }
         }
         Card(title: "Smart actions") {
-            Row(title: "Suggest actions on cards", detail: "JWT decode, Jira keys, GitHub PRs, timestamps, UUIDs, JSON/SQL. Press ⌘J or click the chip.") {
+            Row(title: "Suggest actions on cards", detail: "JWT decode, GitHub PRs, timestamps, UUIDs, JSON/SQL. Press ⌘J or click the chip.") {
                 Toggle("", isOn: $prefs.smartActions).toggleStyle(.switch).labelsHidden()
-            }
-            Divider()
-            Row(title: "Jira site", detail: "Keys like ABC-1234 open at <site>/browse/KEY") {
-                TextField("https://yoursite.atlassian.net", text: $prefs.jiraBaseURL)
-                    .textFieldStyle(.roundedBorder).frame(width: 260)
-                    .accessibilityIdentifier("settings.jira")
             }
         }
         Card(title: "Permissions") {
@@ -314,10 +308,7 @@ private struct AppearancePane: View {
         Card(title: "Moving between cards") {
             toggle("Gliding highlight", "The selection ring slides from card to card instead of jumping", $prefs.glideSelection, "appearance.glide")
             Divider()
-            toggle("Light sweep", "A soft sheen crosses the card you land on", $prefs.sweepSelection, "appearance.sweep")
-            Divider()
-            toggle("Neighbour parallax", "Cards beside the selection lean toward it", $prefs.parallax, "appearance.parallax")
-            Divider()
+
             toggle("Trackpad haptics", "A light tap on each selection change (Force Touch trackpads)", $prefs.haptics, "appearance.haptics")
         }
         Card(title: "Opening the strip") {
@@ -350,11 +341,11 @@ private struct AppearancePane: View {
             toggle("Open shortcut cycles boards", "Pressing ⇧⌘C again while the strip is open moves to the next board", $prefs.hotkeyCyclesTabs, "appearance.cycle")
             Divider()
             toggle("Search everywhere", "Searching from a pinboard also finds History and other boards. Off: search stays inside the open tab", $prefs.searchEverywhere, "appearance.searchEverywhere")
-            Text("Also: ⌃Tab / ⌃⇧Tab next and previous board · hold ⌥ to see ⌥0–9 board numbers.")
+            Text("Also: ⌃Tab / ⌃⇧Tab next and previous board · ⌥0–9 jumps straight to a board.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         Button("Turn everything off (1.1 behaviour)") {
-            prefs.glideSelection = false; prefs.sweepSelection = false; prefs.parallax = false; prefs.haptics = false
+            prefs.glideSelection = false; prefs.haptics = false
             prefs.doubleCtrlInPanel = false; prefs.doubleCtrlGlobal = false; prefs.hotkeyCyclesTabs = false
             prefs.soundsEnabled = false
         }
@@ -444,39 +435,20 @@ private struct SoundRow: View {
 
 private struct ShortcutsPane: View {
     @ObservedObject var prefs: Preferences
-    @State private var conflicts = ShortcutConflicts.current()
 
     private let panelKeys: [(String, String)] = [
         ("← →", "Select"), ("↑ ↓", "Pinboards"), ("↩", "Paste"), ("⇧↩", "Paste plain"), ("⌘1–9", "Quick paste"),
-        ("hold ⌘", "Edit mode"), ("hold ⇧", "Plain mode"), ("Space", "Quick Look"), ("⌘J", "Smart action"), ("⌘K", "Actions"),
+        ("⌘/", "Show shortcuts"), ("hold ⇧", "Plain mode"), ("Space", "Quick Look"), ("⌘J", "Smart action"), ("⌘K", "Actions"),
         ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo delete"), ("⌘P", "Pin"), ("⌘⇧P", "Pin to…"), ("⌃⌃", "Quick pin"), ("⌘O", "Open"),
         ("⌘C", "Copy"), ("⌥⌘C", "Copy plain"), ("⌘I", "Info"), ("⌘R", "Rename"), ("⌘T", "Tags"), ("⌘E", "Edit"),
         ("⌘↑ ⌘↓", "First / last"), ("Tab", "Type filter"), ("⌃Tab", "Next board"), ("⇧⌘C again", "Next board"),
-        ("hold ⌥", "Board numbers"), ("⌥0–9", "Jump to board"), ("Esc", "Close"),
+        ("⌥0–9", "Jump to board"), ("Esc", "Close"),
     ]
 
     var body: some View {
-        if !conflicts.isEmpty {
-            Card {
-                ForEach(conflicts) { c in
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("\(c.name) is running and may use the same shortcut as \"Open myPaste\"").font(.callout.weight(.medium))
-                            Text("Only one app receives the key press. Quit \(c.name) or record a different shortcut below.").font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button("Quit \(c.name)") { c.app.terminate(); DispatchQueue.main.asyncAfter(deadline: .now() + 1) { conflicts = ShortcutConflicts.current() } }
-                            .accessibilityIdentifier("conflict.quit")
-                    }
-                }
-            }
-        }
         Card(title: "Global") {
             Row(title: "Open myPaste") { ShortcutRecorder(name: .openPanel) }
         }
-        Color.clear.frame(height: 0)
-            .onAppear { conflicts = ShortcutConflicts.current() }
         Card(title: "In the panel") {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), alignment: .leading)], alignment: .leading, spacing: 10) {
                 ForEach(panelKeys, id: \.0) { KeyChip(keys: $0.0, label: $0.1) }
@@ -653,14 +625,6 @@ private struct BackupPane: View {
                 .buttonStyle(.borderedProminent).disabled(busy)
                 .accessibilityIdentifier("backup.export")
         }
-        if FileManager.default.fileExists(atPath: (UITest.maccyStore ?? MaccyImport.defaultStoreURL).path) {
-            Card(title: "From Maccy") {
-                Text("Copies your Maccy pins onto a \"Maccy\" pinboard, keeping formatting and copy dates. Maccy itself isn't changed, and running it again skips what's already here.")
-                    .font(.callout).foregroundStyle(.secondary)
-                Button { importMaccy() } label: { Label("Import Pins from Maccy", systemImage: "arrow.down.doc") }
-                    .disabled(busy).accessibilityIdentifier("backup.maccy")
-            }
-        }
         Card(title: "Import") {
             Text("Merges into your current data: pinboards by name, items by content. Duplicates are skipped.")
                 .font(.callout).foregroundStyle(.secondary)
@@ -693,29 +657,6 @@ private struct BackupPane: View {
                 switch result {
                 case .success(let s): status = "Exported \(s.items) items and \(s.pinboards) pinboards" + (s.skippedSensitive > 0 ? " (\(s.skippedSensitive) sensitive skipped)" : "")
                 case .failure(let e): status = nil; AppLog.error("Export failed", e); NSAlert(error: e).runModal()
-                }
-            }
-        }
-    }
-
-    private func importMaccy() {
-        busy = true
-        let store = model.store, ttl = model.prefs.sensitiveTTL, source = UITest.maccyStore ?? MaccyImport.defaultStoreURL
-        Task.detached {
-            let result = Result {
-                try MaccyImport.importPins(from: source, into: store, sensitiveTTL: ttl) { id in
-                    NSWorkspace.shared.urlForApplication(withBundleIdentifier: id)
-                        .map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") }
-                }
-            }
-            await MainActor.run {
-                busy = false
-                switch result {
-                case .success(let s):
-                    status = "Imported \(s.imported) pins from Maccy" + (s.alreadyHere > 0 ? ", \(s.alreadyHere) already here" : "")
-                        + (s.sensitive > 0 ? " (\(s.sensitive) sensitive, masked)" : "")
-                    AppLog.info("Maccy import: \(s.imported) new, \(s.alreadyHere) existing, \(s.sensitive) sensitive")
-                case .failure(let e): status = nil; AppLog.error("Maccy import failed", e); NSAlert(error: e).runModal()
                 }
             }
         }

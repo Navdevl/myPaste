@@ -53,20 +53,12 @@ dist: app
 	ditto -c -k --keepParent $(BUNDLE) $(DIST)/$(APP).zip
 	@lipo -archs $(BUNDLE)/Contents/MacOS/$(APP); echo "Wrote $(DIST)/$(APP).zip"
 
-FAKE     := $(BUILD)/uitest/FakeMaccy.app
-LSREG    := /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
-
 # Accessibility-driven UI tests against the freshly built bundle. Quits the installed copy for the
 # duration (both would fight over hotkeys and the clipboard) and relaunches it afterwards.
 uitest: app
 	swift build -c release --product myPasteUITests
-	mkdir -p $(FAKE)/Contents/MacOS
-	cp Tests/UITests/FakeMaccy/Info.plist $(FAKE)/Contents/Info.plist
-	swiftc Tests/UITests/FakeMaccy/main.swift -o $(FAKE)/Contents/MacOS/FakeMaccy
-	codesign --force --sign - $(FAKE)
 	-pkill -x $(APP); sleep 0.5
-	./$(RELEASE)/myPasteUITests $(BUNDLE) $(FAKE); status=$$?; \
-		$(LSREG) -u $(FAKE) 2>/dev/null; rm -rf $(FAKE); \
+	./$(RELEASE)/myPasteUITests $(BUNDLE); status=$$?; \
 		[ -d $(INSTALL) ] && open $(INSTALL); exit $$status
 
 install: app

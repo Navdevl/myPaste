@@ -29,7 +29,7 @@ struct StripView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if model.editMode && model.editor == nil {
+            if model.showKeys && model.editor == nil {
                 ShortcutBar().padding(.bottom, 8).transition(.move(edge: .bottom).combined(with: .opacity))
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("shortcut.bar")
@@ -87,11 +87,9 @@ struct StripView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    TabChip(title: "History", color: nil, symbol: "clock", active: model.tab == .history,
-                            hint: model.optionHints ? "⌥0" : nil) { model.tab = .history }
-                    ForEach(Array(model.pinboards.enumerated()), id: \.element.id) { i, board in
-                        TabChip(title: board.name, color: Color(hex: board.colorHex), symbol: nil, active: model.tab == .board(board.id),
-                                hint: model.optionHints && i < 9 ? "⌥\(i + 1)" : nil) {
+                    TabChip(title: "History", color: nil, symbol: "clock", active: model.tab == .history) { model.tab = .history }
+                    ForEach(model.pinboards) { board in
+                        TabChip(title: board.name, color: Color(hex: board.colorHex), symbol: nil, active: model.tab == .board(board.id)) {
                             model.tab = .board(board.id)
                         }
                         .dropDestination(for: String.self) { ids, _ in
@@ -113,6 +111,11 @@ struct StripView: View {
 
             Spacer(minLength: 8)
             filterMenus
+            Button { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { model.showKeys.toggle() } } label: {
+                Image(systemName: model.showKeys ? "keyboard.fill" : "keyboard").font(.system(size: 14))
+            }
+            .buttonStyle(.plain).foregroundStyle(model.showKeys ? Color.accentColor : .secondary).help("Shortcuts (⌘/)")
+            .accessibilityIdentifier("keys.hint")
             Button { model.onOpenSettings?() } label: { Image(systemName: "gearshape").font(.system(size: 14)) }
                 .buttonStyle(.plain).foregroundStyle(.secondary).help("Settings (⌘,)")
         }
@@ -214,7 +217,6 @@ private struct TabChip: View {
     let color: Color?
     let symbol: String?
     let active: Bool
-    var hint: String? = nil
     let action: () -> Void
 
     var body: some View {
@@ -223,13 +225,6 @@ private struct TabChip: View {
                 if let color { Circle().fill(color).frame(width: 8, height: 8) }
                 if let symbol { Image(systemName: symbol).font(.system(size: 11)) }
                 Text(title).font(.system(size: 12.5, weight: active ? .semibold : .regular)).lineLimit(1)
-                if let hint {
-                    Text(hint).font(.system(size: 10, weight: .bold, design: .rounded))
-                        .padding(.horizontal, 5).padding(.vertical, 1)
-                        .background(Capsule().fill(Color.accentColor.opacity(0.85))).foregroundStyle(.white)
-                        .transition(.scale.combined(with: .opacity))
-                        .accessibilityIdentifier("tab.hint")
-                }
             }
             .padding(.horizontal, 11).padding(.vertical, 5)
             .background(active ? AnyShapeStyle(Color.accentColor.opacity(0.22)) : AnyShapeStyle(.quaternary.opacity(0.5)), in: Capsule())
@@ -444,13 +439,13 @@ struct QuickLookView: View {
     }
 }
 
-// MARK: Hold-⌘ shortcut bar
+// MARK: Shortcut bar
 
 private struct ShortcutBar: View {
     private let hints: [(String, String)] = [
         ("⌘1–9", "Paste"), ("⌘J", "Smart action"), ("⌘K", "Actions"), ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo"), ("⌘P", "Pin"), ("⌃⌃", "Quick pin"),
         ("⌘O", "Open"), ("⌥⌘C", "Copy plain"), ("⌘I", "Info"), ("⌘R", "Rename"), ("⌘T", "Tags"),
-        ("⌘E", "Edit"), ("⌘↑↓", "First/last"), ("⌥0–9", "Boards"),
+        ("⌘E", "Edit"), ("⌘↑↓", "First/last"), ("⌥0–9", "Boards"), ("⌘/", "Hide this"),
     ]
 
     var body: some View {
