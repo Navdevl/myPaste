@@ -443,7 +443,7 @@ struct QuickLookView: View {
 
 private struct ShortcutBar: View {
     private let hints: [(String, String)] = [
-        ("⌘1–9", "Paste"), ("⌘J", "Smart action"), ("⌘K", "Actions"), ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo"), ("⌘P", "Pin"), ("⌃⌃", "Quick pin"),
+        ("⌘1–9", "Paste"), ("⌘J", "Smart action"), ("⌘K", "Actions"), ("⌘M", "Card menu"), ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo"), ("⌘P", "Pin"), ("⌃⌃", "Quick pin"),
         ("⌘O", "Open"), ("⌥⌘C", "Copy plain"), ("⌘I", "Info"), ("⌘R", "Rename"), ("⌘T", "Tags"),
         ("⌘E", "Edit"), ("⌘↑↓", "First/last"), ("⌥0–9", "Boards"), ("⌘/", "Hide this"),
     ]

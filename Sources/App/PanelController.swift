@@ -210,6 +210,15 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
+    /// ⌘M: the selected card's menu (same entries as the ⋯ button and right-click), popped up at the card.
+    private func showCardMenu() {
+        guard let item = model.selectedItem, let rect = model.selectedCardRect, let view = panel.contentView else { NSSound.beep(); return }
+        let menu = CardNSMenu.build(model.cardMenu(for: item))
+        let point = NSPoint(x: rect.minX + 24, y: view.frame.height - rect.midY) // view space: origin bottom-left
+        // Not inside the key monitor: the menu runs its own tracking loop until it closes.
+        DispatchQueue.main.async { menu.popUp(positioning: nil, at: point, in: view) }
+    }
+
     /// Returns true when the key was consumed. Keys not handled here fall through to the search field,
     /// so ⌘⌫ / ⌥⌫ / ⌘A / ⌘← in text behave like any macOS text field.
     private func handle(_ e: NSEvent) -> Bool {
@@ -229,6 +238,11 @@ final class PanelController: NSObject, NSWindowDelegate {
             else if model.showKeys { withAnimation(.easeOut(duration: 0.15)) { model.showKeys = false } }
             else if !model.search.isEmpty { model.search = "" }
             else { hide() }
+            return true
+
+        // ⌘M : the selected card's menu, same as right-clicking it
+        case (kVK_ANSI_M, .command):
+            showCardMenu()
             return true
 
         // ⌘/ : show or hide the shortcut bar

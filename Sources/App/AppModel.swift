@@ -36,6 +36,8 @@ final class AppModel: ObservableObject {
     @Published var editor: Editor?
     @Published var quickLookID: Int64?
     @Published var hoveredID: Int64?
+    /// Window-space frame of the selected card (not published: it changes while scrolling). Used by ⌘M.
+    var selectedCardRect: CGRect?
     @Published var now = Date()
     /// Bumped each time the panel opens so the search field re-takes focus.
     @Published var focusToken = 0

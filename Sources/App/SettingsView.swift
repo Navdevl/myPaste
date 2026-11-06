@@ -438,7 +438,7 @@ private struct ShortcutsPane: View {
 
     private let panelKeys: [(String, String)] = [
         ("← →", "Select"), ("↑ ↓", "Pinboards"), ("↩", "Paste"), ("⇧↩", "Paste plain"), ("⌘1–9", "Quick paste"),
-        ("⌘/", "Show shortcuts"), ("hold ⇧", "Plain mode"), ("Space", "Quick Look"), ("⌘J", "Smart action"), ("⌘K", "Actions"),
+        ("⌘/", "Show shortcuts"), ("hold ⇧", "Plain mode"), ("Space", "Quick Look"), ("⌘J", "Smart action"), ("⌘K", "Actions"), ("⌘M", "Card menu"),
         ("⌘⇧⌫", "Delete"), ("⌘Z", "Undo delete"), ("⌘P", "Pin"), ("⌘⇧P", "Pin to…"), ("⌃⌃", "Quick pin"), ("⌘O", "Open"),
         ("⌘C", "Copy"), ("⌥⌘C", "Copy plain"), ("⌘I", "Info"), ("⌘R", "Rename"), ("⌘T", "Tags"), ("⌘E", "Edit"),
         ("⌘↑ ⌘↓", "First / last"), ("Tab", "Type filter"), ("⌃Tab", "Next board"), ("⇧⌘C again", "Next board"),

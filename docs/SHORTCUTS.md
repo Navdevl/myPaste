@@ -23,6 +23,7 @@
 | ⌘I | Info |
 | ⌘J | Smart action: open a GitHub PR or issue, decode a JWT, convert a timestamp |
 | ⌘K | Actions: JSON/SQL formatting, text cleanup, case, URL cleanup, encode/decode, hashes, epoch ↔ IST |
+| ⌘M | Card menu (same as right-click; every item shows its key) |
 | ⌘R ⌘T ⌘E | Rename / tags / edit text |
 | ⌘N | New pinboard |
 

@@ -2,6 +2,12 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
+## 1.7.1 (2026-11-06)
+
+- Card menu without a right-click: a ⋯ button appears on the selected or hovered card, and ⌘M opens the same menu for the selected card. Right-click still works.
+- Every item in that menu now shows its key, e.g. "Delete  (⌘⇧⌫)", "Tags…  (⌘T)", so it doubles as the place to learn the shortcuts.
+- `ONLY="text" make uitest` runs just the UI tests whose name contains that text.
+
 ## 1.7.0 (2026-11-06)
 
 Removed

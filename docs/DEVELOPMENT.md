@@ -47,5 +47,5 @@ toolchains build the blurred fallback.
 `Tests/UITests` is an AppKit harness (not XCUITest: no Xcode here). It launches `build/myPaste.app` with
 `MYPASTE_UITEST=1` and a throwaway data folder, types with CGEvents, and finds/presses controls by
 accessibility identifier. Test-only seams (file panels, URL opening, Settings pane routing) live in
-`Sources/App/UITestHooks.swift`. The terminal running it needs Accessibility permission. Don't type while it runs:
+`Sources/App/UITestHooks.swift`. The terminal running it needs Accessibility permission. `ONLY="card menu" make uitest` runs a single test. Don't type while it runs:
 stray keystrokes land in its paste-target window and fail unrelated checks.
