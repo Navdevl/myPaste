@@ -29,6 +29,7 @@
 
 Hold ⇧ in the strip for plain-text mode: ↩, ⌘1–9 and double-click all paste without formatting.
 Hover a card to get its ✕ delete button and ⌘1–9 badge; the smart-action chip shows its ⌘J key.
+The hint line at the bottom right always lists the usual keys for the selected card; ⌘M opens its menu with the rest.
 Drag a card onto a pinboard tab to pin it. Right-click a card for everything else.
 
 ## Search

@@ -288,6 +288,17 @@ func runAll() async {
         check(await waitFor { openedURLs.contains("https://example.com/pricing") }, "link opened (got \(openedURLs))")
     }
 
+    await test("hint line: usual shortcuts sit at the bottom, adapted to the selected card") {
+        await copy("[uitest] hint line")
+        check(await openPanel(), "strip is visible")
+        guard let line = await element("hint.line", timeout: 3) else { check(false, "hint line found"); return }
+        let t = text(of: line)
+        check(["Paste", "Pin", "Rename", "Info", "Actions", "Delete", "More"].allSatisfy { t.contains($0) }, "usual hints present (got \"\(t)\")")
+        check(t.contains("⌘M") && t.contains("⌘⇧⌫"), "keys shown (got \"\(t)\")")
+        check(!t.contains("Plain"), "no Plain hint for unformatted text")
+        await closePanel()
+    }
+
     await test("shortcut hint: the keyboard button and ⌘/ toggle the shortcut bar; Esc hides it first") {
         check(await openPanel(), "strip is visible")
         check(elements("shortcut.bar").isEmpty, "bar hidden by default")

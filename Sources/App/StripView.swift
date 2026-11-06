@@ -11,6 +11,7 @@ struct StripView: View {
             VStack(spacing: 10) {
                 topBar
                 cards
+                if model.prefs.showHintLine { HintLine() }
             }
             // On an inner view: an identifier on the root propagates to every unlabelled descendant,
             // which hid the shortcut bar's and toast's own identifiers from UI tests.
@@ -436,6 +437,44 @@ struct QuickLookView: View {
             }
             }
         }
+    }
+}
+
+// MARK: Hint line
+
+/// The usual keys for the selected card, small and quiet at the bottom right; ⌘M has the rest.
+/// Hidden while the full shortcut bar or the plain-text banner is up, since they sit in the same place.
+private struct HintLine: View {
+    @EnvironmentObject var model: AppModel
+
+    private var hints: [(key: String, label: String)] {
+        guard let item = model.selectedItem else { return [] }
+        var h: [(String, String)] = [("↩", "Paste")]
+        if item.hasFormatting { h.append(("⇧↩", "Plain")) }
+        h += [("⌘P", "Pin"), ("⌘R", "Rename"), ("⌘I", "Info")]
+        if item.text != nil, item.kind != .image, item.kind != .file { h.append(("⌘K", "Actions")) }
+        h += [("⌘⇧⌫", "Delete"), ("⌘M", "More")]
+        return h
+    }
+
+    var body: some View {
+        HStack(spacing: 13) {
+            Spacer(minLength: 0)
+            ForEach(hints, id: \.key) { hint in
+                HStack(spacing: 4) {
+                    Text(hint.key).font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                    Text(hint.label).font(.system(size: 10.5))
+                }
+            }
+        }
+        .foregroundStyle(.secondary)
+        .opacity(model.showKeys || model.plainMode || model.editor != nil ? 0 : 0.8)
+        .animation(.easeOut(duration: 0.15), value: model.showKeys)
+        .padding(.horizontal, 24)
+        .frame(height: 16)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(hints.map { "\($0.key) \($0.label)" }.joined(separator: ", "))
+        .accessibilityIdentifier("hint.line")
     }
 }
 

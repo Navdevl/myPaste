@@ -11,7 +11,7 @@ final class StripPanel: NSPanel {
 }
 
 final class PanelController: NSObject, NSWindowDelegate {
-    static let height: CGFloat = 340
+    static let height: CGFloat = 358 // 18 of it is the hint line under the cards
 
     private let model: AppModel
     private let panel: StripPanel

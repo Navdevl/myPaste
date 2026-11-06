@@ -33,6 +33,8 @@ final class Preferences: ObservableObject {
     // Appearance & motion
     @Published var glideSelection: Bool { didSet { d.set(glideSelection, forKey: "glideSelection") } }
     @Published var haptics: Bool { didSet { d.set(haptics, forKey: "haptics") } }
+    /// A quiet line of the usual shortcuts along the bottom of the strip.
+    @Published var showHintLine: Bool { didSet { d.set(showHintLine, forKey: "showHintLine") } }
     /// Off by default: opening is instant. On: the first cards spring in one after another (~0.5 s).
     @Published var entranceAnimation: Bool { didSet { d.set(entranceAnimation, forKey: "entranceAnimation") } }
     @Published var doubleCtrlInPanel: Bool { didSet { d.set(doubleCtrlInPanel, forKey: "doubleCtrlInPanel") } }
@@ -58,7 +60,7 @@ final class Preferences: ObservableObject {
             "excludedBundleIDs": Self.defaultExcluded,
             "linkPreviews": true, "ocr": true, "directPaste": true, "capturePaused": false,
             "smartActions": true,
-            "glideSelection": true, "haptics": true, "entranceAnimation": false,
+            "glideSelection": true, "haptics": true, "showHintLine": true, "entranceAnimation": false,
             "doubleCtrlInPanel": true, "doubleCtrlGlobal": true, "hotkeyCyclesTabs": true, "searchEverywhere": true,
             // UI test runs stay silent; everyone else gets sounds at 40%.
             "soundsEnabled": !UITest.enabled, "soundVolume": 0.4, "soundCopy": true, "soundPaste": true, "soundDelete": true,
@@ -75,6 +77,7 @@ final class Preferences: ObservableObject {
         smartActions = d.bool(forKey: "smartActions")
         glideSelection = d.bool(forKey: "glideSelection")
         haptics = d.bool(forKey: "haptics")
+        showHintLine = d.bool(forKey: "showHintLine")
         entranceAnimation = d.bool(forKey: "entranceAnimation")
         doubleCtrlInPanel = d.bool(forKey: "doubleCtrlInPanel")
         doubleCtrlGlobal = d.bool(forKey: "doubleCtrlGlobal")

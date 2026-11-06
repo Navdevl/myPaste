@@ -2,6 +2,11 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
+## 1.7.2 (2026-11-06)
+
+- A quiet hint line under the cards, bottom right: ↩ Paste, ⇧↩ Plain (only for formatted items), ⌘P Pin, ⌘R Rename, ⌘I Info, ⌘K Actions (only where they apply), ⌘⇧⌫ Delete, ⌘M More. It fades out while the shortcut bar, plain-text banner or an editor is up. Switch it off in Settings → Appearance → Hints.
+- The strip is 18 pt taller to make room for it.
+
 ## 1.7.1 (2026-11-06)
 
 - Card menu without a right-click: a ⋯ button appears on the selected or hovered card, and ⌘M opens the same menu for the selected card. Right-click still works.

@@ -311,6 +311,9 @@ private struct AppearancePane: View {
 
             toggle("Trackpad haptics", "A light tap on each selection change (Force Touch trackpads)", $prefs.haptics, "appearance.haptics")
         }
+        Card(title: "Hints") {
+            toggle("Key hints along the bottom", "A quiet line of the usual shortcuts (paste, pin, rename, info, actions, delete) under the cards. ⌘M shows the rest", $prefs.showHintLine, "appearance.hints")
+        }
         Card(title: "Opening the strip") {
             toggle("Staggered card entrance", "Cards spring in one after another when the strip opens. Off: they're simply there, which is faster", $prefs.entranceAnimation, "appearance.entrance")
         }
