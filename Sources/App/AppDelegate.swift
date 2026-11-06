@@ -117,6 +117,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             for i in 0..<(UITest.autoToggles * 2) {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3 + Double(i) * 1.2) { [weak self] in self?.panel.toggle() }
             }
+            if UITest.autoCardMenu {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.4) { [weak self] in
+                    if let id = self?.model.selectedID { self?.model.editor = .cardMenu(id) }
+                }
+            }
         }
 
         if UITest.enabled {

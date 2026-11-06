@@ -80,16 +80,6 @@ struct CardView: View {
         .shadow(color: .black.opacity(selected ? 0.28 : 0.12), radius: selected ? 10 : 4, y: 2)
         .scaleEffect(selected ? 1.0 : 0.97)
         .animation(.easeOut(duration: 0.12), value: selected)
-        .background {
-            // Only the selected card tracks its position; ⌘M opens that card's menu there.
-            if selected {
-                GeometryReader { geo in
-                    Color.clear
-                        .onAppear { model.selectedCardRect = geo.frame(in: .global) }
-                        .onChange(of: geo.frame(in: .global)) { _, f in model.selectedCardRect = f }
-                }
-            }
-        }
         .contentShape(Rectangle())
         .onHover { model.hoveredID = $0 ? item.id : (model.hoveredID == item.id ? nil : model.hoveredID) }
         .onTapGesture(count: 2) { model.paste(item, plain: NSEvent.modifierFlags.contains(.shift)) }
@@ -329,11 +319,11 @@ struct CardView: View {
             }
             Spacer(minLength: 2)
             if selected || hovered {
-                Menu { CardMenu(item: item) } label: {
+                Button { model.select(item.id); model.editor = .cardMenu(item.id) } label: {
                     Image(systemName: "ellipsis.circle").font(.system(size: 13)).foregroundStyle(.secondary)
                 }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .help("Card menu (⌘M, or right-click)")
+                .buttonStyle(.plain)
+                .help("Everything you can do with this card (⌘M, or right-click)")
                 .accessibilityIdentifier("card.menu")
                 .transition(.opacity)
             }
@@ -344,45 +334,79 @@ struct CardView: View {
     }
 }
 
-/// One description of a card's menu, rendered by SwiftUI (⋯ button, right-click) and by AppKit (⌘M),
-/// so the three can't drift apart. Each title carries its key: the menu doubles as the place to learn them.
+/// One colour per kind of action, shared by the hint line and the ⌘M panel so a key always looks the same.
+enum KeyTint {
+    static let paste = Color.blue
+    static let plain = Color.orange
+    static let copy = Color.teal
+    static let open = Color.indigo
+    static let pin = Color.pink
+    static let edit = Color.purple
+    static let look = Color.cyan
+    static let info = Color.mint
+    static let actions = Color.green
+    static let delete = Color.red
+    static let more = Color.gray
+}
+
+/// One action on a card: shown in the right-click menu as "Title  (key)" and in the ⌘M panel with its icon.
+struct CardMenuItem {
+    let title: String
+    var key: String? = nil
+    let symbol: String
+    let tint: Color
+    var destructive = false
+    let run: () -> Void
+}
+
+/// One description of a card's menu, rendered by the right-click menu and by the ⌘M / ⋯ panel, so the two
+/// can't drift apart. A submenu's own `run` is what the panel does with it (Pin to… opens the pin picker).
 indirect enum CardMenuEntry {
-    case action(String, destructive: Bool = false, () -> Void)
-    case submenu(String, [CardMenuEntry])
+    case action(CardMenuItem)
+    case submenu(CardMenuItem, [CardMenuEntry])
     case separator
 }
 
 extension AppModel {
     func cardMenu(for item: ClipItem) -> [CardMenuEntry] {
         var out: [CardMenuEntry] = [
-            .action("Paste  (↩)") { self.paste(item) },
-            .action("Paste as Plain Text  (⇧↩)") { self.paste(item, plain: true) },
-            .action("Copy  (⌘C)") { self.onCopy?(item, false) },
-            .action("Copy as Plain Text  (⌥⌘C)") { self.onCopy?(item, true) },
+            .action(.init(title: "Paste", key: "↩", symbol: "doc.on.clipboard", tint: KeyTint.paste) { self.paste(item) }),
+            .action(.init(title: "Paste as Plain Text", key: "⇧↩", symbol: "textformat", tint: KeyTint.plain) { self.paste(item, plain: true) }),
+            .action(.init(title: "Copy", key: "⌘C", symbol: "doc.on.doc", tint: KeyTint.copy) { self.onCopy?(item, false) }),
+            .action(.init(title: "Copy as Plain Text", key: "⌥⌘C", symbol: "doc.plaintext", tint: KeyTint.copy) { self.onCopy?(item, true) }),
         ]
         if item.kind == .link || item.kind == .file {
-            out.append(.action((item.kind == .link ? "Open Link" : "Show in Finder") + "  (⌘O)") { self.onOpen?(item) })
+            out.append(.action(.init(title: item.kind == .link ? "Open Link" : "Show in Finder", key: "⌘O",
+                                     symbol: "arrow.up.right.square", tint: KeyTint.open) { self.onOpen?(item) }))
         }
         out.append(.separator)
         var boards: [CardMenuEntry] = pinboards.map { board in
-            .action((item.pinboardIDs.contains(board.id) ? "✓ " : "") + board.name) { self.togglePin(item, board: board.id) }
+            .action(.init(title: (item.pinboardIDs.contains(board.id) ? "✓ " : "") + board.name, symbol: "circle.fill", tint: KeyTint.pin) {
+                self.togglePin(item, board: board.id)
+            })
         }
         if !pinboards.isEmpty { boards.append(.separator) }
-        boards.append(.action("New Pinboard…  (⌘N)") { self.editor = .newBoard(pinItem: item.id) })
-        out.append(.submenu("Pin to  (⌘P, ⌘⇧P)", boards))
-        if item.isPinned { out.append(.action("Unpin from All") { self.unpinAll(item) }) }
-        out.append(.action("Tags…  (⌘T)") { self.editor = .tags(item.id) })
-        out.append(.action("Rename…  (⌘R)") { self.editor = .rename(item.id) })
-        if item.kind != .image && item.kind != .file { out.append(.action("Edit Text…  (⌘E)") { self.editor = .editText(item.id) }) }
-        out.append(.action("Quick Look  (Space)") { self.selectedID = item.id; self.quickLookID = item.id })
-        out.append(.action("Info  (⌘I)") { self.editor = .info(item.id) })
-        if item.text != nil, item.kind != .image, item.kind != .file { out.append(.action("Actions…  (⌘K)") { self.editor = .actions(item.id) }) }
+        boards.append(.action(.init(title: "New Pinboard…", key: "⌘N", symbol: "plus", tint: KeyTint.pin) { self.editor = .newBoard(pinItem: item.id) }))
+        out.append(.submenu(.init(title: "Pin to…", key: "⌘⇧P", symbol: "pin.fill", tint: KeyTint.pin) { self.editor = .pinPicker(item.id) }, boards))
+        if item.isPinned { out.append(.action(.init(title: "Unpin from All", symbol: "pin.slash", tint: KeyTint.pin) { self.unpinAll(item) })) }
+        out.append(.action(.init(title: "Tags…", key: "⌘T", symbol: "number", tint: KeyTint.edit) { self.editor = .tags(item.id) }))
+        out.append(.action(.init(title: "Rename…", key: "⌘R", symbol: "pencil", tint: KeyTint.edit) { self.editor = .rename(item.id) }))
+        if item.kind != .image && item.kind != .file {
+            out.append(.action(.init(title: "Edit Text…", key: "⌘E", symbol: "square.and.pencil", tint: KeyTint.edit) { self.editor = .editText(item.id) }))
+        }
         out.append(.separator)
-        out.append(.action("Delete  (⌘⇧⌫)", destructive: true) { self.delete(item) })
+        out.append(.action(.init(title: "Quick Look", key: "Space", symbol: "eye", tint: KeyTint.look) { self.selectedID = item.id; self.quickLookID = item.id }))
+        out.append(.action(.init(title: "Info", key: "⌘I", symbol: "info.circle", tint: KeyTint.info) { self.editor = .info(item.id) }))
+        if item.text != nil, item.kind != .image, item.kind != .file {
+            out.append(.action(.init(title: "Actions…", key: "⌘K", symbol: "wand.and.stars", tint: KeyTint.actions) { self.editor = .actions(item.id) }))
+        }
+        out.append(.separator)
+        out.append(.action(.init(title: "Delete", key: "⌘⇧⌫", symbol: "trash", tint: KeyTint.delete, destructive: true) { self.delete(item) }))
         return out
     }
 }
 
+/// The right-click menu.
 struct CardMenu: View {
     let item: ClipItem
     @EnvironmentObject var model: AppModel
@@ -396,41 +420,13 @@ private struct CardMenuEntries: View {
     var body: some View {
         ForEach(entries.indices, id: \.self) { i in
             switch entries[i] {
-            case .action(let title, let destructive, let run): Button(title, role: destructive ? .destructive : nil, action: run)
-            case .submenu(let title, let kids): Menu(title) { CardMenuEntries(entries: kids) }
+            case .action(let a):
+                Button(a.key.map { "\(a.title)  (\($0))" } ?? a.title, role: a.destructive ? .destructive : nil, action: a.run)
+            case .submenu(let a, let kids):
+                Menu(a.key.map { "\(a.title)  (\($0))" } ?? a.title) { CardMenuEntries(entries: kids) }
             case .separator: Divider()
             }
         }
-    }
-}
-
-/// AppKit rendering of the same entries, for popping the menu up from the keyboard.
-enum CardNSMenu {
-    private final class Runner: NSObject {
-        let run: () -> Void
-        init(_ run: @escaping () -> Void) { self.run = run }
-        @objc func fire() { run() }
-    }
-
-    static func build(_ entries: [CardMenuEntry]) -> NSMenu {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-        for entry in entries {
-            switch entry {
-            case .separator: menu.addItem(.separator())
-            case .action(let title, _, let run):
-                let runner = Runner(run)
-                let item = NSMenuItem(title: title, action: #selector(Runner.fire), keyEquivalent: "")
-                item.target = runner
-                item.representedObject = runner // keeps the runner alive as long as the item
-                menu.addItem(item)
-            case .submenu(let title, let kids):
-                let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-                item.submenu = build(kids)
-                menu.addItem(item)
-            }
-        }
-        return menu
     }
 }
 

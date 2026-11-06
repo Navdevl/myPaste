@@ -117,19 +117,6 @@ func dumpIDs() {
     }
 }
 
-/// Titles of every menu item the app currently exposes (pop-up menus are outside its windows).
-func menuItemTitles() -> [String] {
-    var out: [String] = []
-    var stack = [(app, 0)]
-    var n = 0
-    while let (e, d) = stack.popLast(), n < 3000 {
-        n += 1
-        if e.role == "AXMenuItem", let t = e.title { out.append(t) }
-        if d < 12 { stack.append(contentsOf: e.children.map { ($0, d + 1) }) }
-    }
-    return out
-}
-
 /// Visible text of an element: SwiftUI exposes Text as AXStaticText with the string in value or description.
 func text(of e: AX) -> String { e.value ?? e.title ?? e.description ?? "" }
 
@@ -315,21 +302,24 @@ func runAll() async {
         await closePanel()
     }
 
-    await test("card menu: the ⋯ button and ⌘M open it, and every item shows its key") {
+    await test("card panel: the ⋯ button and ⌘M open it, rows show their keys, typing filters") {
         await copy("[uitest] card menu")
         check(await openPanel(), "strip is visible")
+        func rowLabels() -> [String] { (0..<20).flatMap { elements("cardmenu.row.\($0)") }.map { text(of: $0) } }
         guard let button = await element("card.menu", timeout: 3) else { check(false, "⋯ button on the selected card"); await closePanel(); return }
         check(button.press(), "⋯ pressed")
-        let opened = await waitFor(3) { menuItemTitles().contains { $0.contains("Delete") } }
-        check(opened, "⋯ opened the menu (menu items seen: \(menuItemTitles()))")
-        let titles = menuItemTitles()
-        check(titles.contains { $0.contains("Delete") && $0.contains("⌘⇧⌫") }, "Delete shows ⌘⇧⌫")
-        check(titles.contains { $0.contains("Tags") && $0.contains("⌘T") }, "Tags shows ⌘T")
-        check(titles.contains { $0.contains("Pin to") && $0.contains("⌘P") }, "Pin shows ⌘P")
-        await key(K.esc) // closes the menu
-        check(await waitFor(2) { !menuItemTitles().contains { $0.contains("Delete") } }, "menu closed")
+        check(await element("cardmenu", timeout: 2) != nil, "⋯ opened the card panel")
+        let labels = rowLabels()
+        check(labels.contains { $0.contains("Delete") && $0.contains("⌘⇧⌫") }, "Delete shows ⌘⇧⌫ (got \(labels))")
+        check(labels.contains { $0.contains("Tags") && $0.contains("⌘T") }, "Tags shows ⌘T")
+        check(labels.contains { $0.contains("Pin to") && $0.contains("⌘⇧P") }, "Pin to shows ⌘⇧P")
+        systemEvents(["keystroke \"dele\""])
+        check(await waitFor(2) { rowLabels().count == 1 && rowLabels().first?.contains("Delete") == true }, "typing filters to Delete (got \(rowLabels()))")
+        await key(K.esc)
+        check(await waitFor(2) { elements("cardmenu").isEmpty }, "Esc closed the panel")
+        check(elements("strip").count > 0, "the strip stayed open")
         await key(46, .maskCommand) // ⌘M
-        check(await waitFor(3) { menuItemTitles().contains { $0.contains("Delete") } }, "⌘M opened the menu too")
+        check(await element("cardmenu", timeout: 2) != nil, "⌘M opened the card panel too")
         await key(K.esc)
         await closePanel()
     }

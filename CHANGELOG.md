@@ -2,6 +2,11 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
+## 1.7.3 (2026-11-06)
+
+- ⌘M and the ⋯ button now open a card panel styled like the pin picker: every action with a coloured icon and its key, in two columns. Type to filter, ↑↓ ←→ ↩ to choose, Esc to close. "Pin to…" opens the pin picker. Right-click is still the native menu, with the keys in its titles.
+- The hint line sits closer to the cards (strip 12 pt shorter) and each key has its own soft colour, the same as in the card panel.
+
 ## 1.7.2 (2026-11-06)
 
 - A quiet hint line under the cards, bottom right: ↩ Paste, ⇧↩ Plain (only for formatted items), ⌘P Pin, ⌘R Rename, ⌘I Info, ⌘K Actions (only where they apply), ⌘⇧⌫ Delete, ⌘M More. It fades out while the shortcut bar, plain-text banner or an editor is up. Switch it off in Settings → Appearance → Hints.

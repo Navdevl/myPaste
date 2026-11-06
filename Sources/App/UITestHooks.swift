@@ -13,6 +13,8 @@ enum UITest {
     static var autoSettingsPane: SettingsView.Pane? {
         enabled ? ProcessInfo.processInfo.environment["MYPASTE_UITEST_AUTOSETTINGS"].flatMap(SettingsView.Pane.init(rawValue:)) : nil
     }
+    /// With MYPASTE_UITEST_AUTOTOGGLE: also opens the ⌘M panel for the selected card after the first open.
+    static var autoCardMenu: Bool { enabled && ProcessInfo.processInfo.environment["MYPASTE_UITEST_AUTOCARDMENU"] == "1" }
     static var autoToggles: Int { enabled ? Int(ProcessInfo.processInfo.environment["MYPASTE_UITEST_AUTOTOGGLE"] ?? "") ?? 0 : 0 }
 
     private static func url(_ key: String) -> URL? {

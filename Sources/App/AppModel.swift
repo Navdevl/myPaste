@@ -18,6 +18,7 @@ enum Editor: Equatable {
     case pinPicker(Int64)
     case info(Int64)
     case actions(Int64)
+    case cardMenu(Int64)
 }
 
 /// UI state for the strip: all items in memory (≤ a few thousand), filtered on the main thread.
@@ -36,8 +37,6 @@ final class AppModel: ObservableObject {
     @Published var editor: Editor?
     @Published var quickLookID: Int64?
     @Published var hoveredID: Int64?
-    /// Window-space frame of the selected card (not published: it changes while scrolling). Used by ⌘M.
-    var selectedCardRect: CGRect?
     @Published var now = Date()
     /// Bumped each time the panel opens so the search field re-takes focus.
     @Published var focusToken = 0

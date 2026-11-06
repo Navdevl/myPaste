@@ -11,7 +11,7 @@ final class StripPanel: NSPanel {
 }
 
 final class PanelController: NSObject, NSWindowDelegate {
-    static let height: CGFloat = 358 // 18 of it is the hint line under the cards
+    static let height: CGFloat = 346 // 16 of it is the hint line under the cards
 
     private let model: AppModel
     private let panel: StripPanel
@@ -210,13 +210,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
-    /// ⌘M: the selected card's menu (same entries as the ⋯ button and right-click), popped up at the card.
+    /// ⌘M: the selected card's action panel (same entries as the right-click menu).
     private func showCardMenu() {
-        guard let item = model.selectedItem, let rect = model.selectedCardRect, let view = panel.contentView else { NSSound.beep(); return }
-        let menu = CardNSMenu.build(model.cardMenu(for: item))
-        let point = NSPoint(x: rect.minX + 24, y: view.frame.height - rect.midY) // view space: origin bottom-left
-        // Not inside the key monitor: the menu runs its own tracking loop until it closes.
-        DispatchQueue.main.async { menu.popUp(positioning: nil, at: point, in: view) }
+        guard let item = model.selectedItem else { NSSound.beep(); return }
+        model.editor = .cardMenu(item.id)
     }
 
     /// Returns true when the key was consumed. Keys not handled here fall through to the search field,

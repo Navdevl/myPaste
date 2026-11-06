@@ -11,7 +11,7 @@ struct StripView: View {
             VStack(spacing: 10) {
                 topBar
                 cards
-                if model.prefs.showHintLine { HintLine() }
+                if model.prefs.showHintLine { HintLine().padding(.top, -8) }
             }
             // On an inner view: an identifier on the root propagates to every unlabelled descendant,
             // which hid the shortcut bar's and toast's own identifiers from UI tests.
@@ -25,6 +25,7 @@ struct StripView: View {
                 case .pinPicker(let id): PinPickerView(itemID: id) { model.editor = nil }
                 case .info(let id): InfoView(itemID: id)
                 case .actions(let id): ActionsView(itemID: id)
+                case .cardMenu(let id): CardMenuView(itemID: id)
                 default: EditorView()
                 }
             }
@@ -184,7 +185,7 @@ struct StripView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.vertical, 12) // headroom for the edit-mode ✕ and ⌘N badges
+                .padding(.top, 12).padding(.bottom, 6) // top: headroom for the ✕ and ⌘N badges
                 .environment(\.selectionNamespace, selectionNS)
             }
             .overlay {
@@ -314,7 +315,7 @@ struct EditorView: View {
         case .editText: return "Edit Text"
         case .newBoard: return "New Pinboard"
         case .editBoard: return "Edit Pinboard"
-        case .pinPicker, .info, .actions, nil: return ""
+        case .pinPicker, .info, .actions, .cardMenu, nil: return ""
         }
     }
 
@@ -335,7 +336,7 @@ struct EditorView: View {
             if let b = model.pinboards.first(where: { $0.id == id }) { text = b.name; color = b.colorHex }
         case .newBoard:
             color = Format.boardColors[model.pinboards.count % Format.boardColors.count]
-        case .pinPicker, .info, .actions, nil: break
+        case .pinPicker, .info, .actions, .cardMenu, nil: break
         }
         DispatchQueue.main.async { focused = true }
     }
@@ -350,7 +351,7 @@ struct EditorView: View {
         case .newBoard(let pinItem): model.createBoard(name: text, color: color, pin: pinItem)
         case .editBoard(let id):
             if !text.trimmingCharacters(in: .whitespaces).isEmpty { try? store.updatePinboard(id, name: text, colorHex: color) }
-        case .pinPicker, .info, .actions, nil: break
+        case .pinPicker, .info, .actions, .cardMenu, nil: break
         }
         model.editor = nil
     }
@@ -447,13 +448,13 @@ struct QuickLookView: View {
 private struct HintLine: View {
     @EnvironmentObject var model: AppModel
 
-    private var hints: [(key: String, label: String)] {
+    private var hints: [(key: String, label: String, tint: Color)] {
         guard let item = model.selectedItem else { return [] }
-        var h: [(String, String)] = [("↩", "Paste")]
-        if item.hasFormatting { h.append(("⇧↩", "Plain")) }
-        h += [("⌘P", "Pin"), ("⌘R", "Rename"), ("⌘I", "Info")]
-        if item.text != nil, item.kind != .image, item.kind != .file { h.append(("⌘K", "Actions")) }
-        h += [("⌘⇧⌫", "Delete"), ("⌘M", "More")]
+        var h: [(String, String, Color)] = [("↩", "Paste", KeyTint.paste)]
+        if item.hasFormatting { h.append(("⇧↩", "Plain", KeyTint.plain)) }
+        h += [("⌘P", "Pin", KeyTint.pin), ("⌘R", "Rename", KeyTint.edit), ("⌘I", "Info", KeyTint.info)]
+        if item.text != nil, item.kind != .image, item.kind != .file { h.append(("⌘K", "Actions", KeyTint.actions)) }
+        h += [("⌘⇧⌫", "Delete", KeyTint.delete), ("⌘M", "More", KeyTint.more)]
         return h
     }
 
@@ -462,13 +463,15 @@ private struct HintLine: View {
             Spacer(minLength: 0)
             ForEach(hints, id: \.key) { hint in
                 HStack(spacing: 4) {
-                    Text(hint.key).font(.system(size: 10.5, weight: .semibold, design: .rounded))
-                    Text(hint.label).font(.system(size: 10.5))
+                    Text(hint.key).font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(hint.tint)
+                        .padding(.horizontal, 4).padding(.vertical, 1)
+                        .background(hint.tint.opacity(0.13), in: RoundedRectangle(cornerRadius: 4))
+                    Text(hint.label).font(.system(size: 10.5)).foregroundStyle(.secondary)
                 }
             }
         }
-        .foregroundStyle(.secondary)
-        .opacity(model.showKeys || model.plainMode || model.editor != nil ? 0 : 0.8)
+        .opacity(model.showKeys || model.plainMode || model.editor != nil ? 0 : 0.9)
         .animation(.easeOut(duration: 0.15), value: model.showKeys)
         .padding(.horizontal, 24)
         .frame(height: 16)
