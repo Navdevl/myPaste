@@ -27,8 +27,8 @@ struct CardView: View {
             .scaleEffect(model.pulseID == item.id ? 1.06 : 1)
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 36)
-            .onAppear { if !entranceShown, Date().timeIntervalSince(model.shownAt) < 0.4 { runEntrance() } }
-            .onChange(of: model.entranceToken) { _, _ in runEntrance() }
+            .onAppear { if !entranceShown, model.prefs.entranceAnimation, Date().timeIntervalSince(model.shownAt) < 0.4 { runEntrance() } }
+            .onChange(of: model.entranceToken) { _, _ in if model.prefs.entranceAnimation { runEntrance() } }
     }
 
     /// Only the first screenful staggers in on open; cards scrolled into view later just appear.

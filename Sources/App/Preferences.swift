@@ -36,6 +36,8 @@ final class Preferences: ObservableObject {
     @Published var sweepSelection: Bool { didSet { d.set(sweepSelection, forKey: "sweepSelection") } }
     @Published var parallax: Bool { didSet { d.set(parallax, forKey: "parallax") } }
     @Published var haptics: Bool { didSet { d.set(haptics, forKey: "haptics") } }
+    /// Off by default: opening is instant. On: the first cards spring in one after another (~0.5 s).
+    @Published var entranceAnimation: Bool { didSet { d.set(entranceAnimation, forKey: "entranceAnimation") } }
     @Published var doubleCtrlInPanel: Bool { didSet { d.set(doubleCtrlInPanel, forKey: "doubleCtrlInPanel") } }
     @Published var doubleCtrlGlobal: Bool { didSet { d.set(doubleCtrlGlobal, forKey: "doubleCtrlGlobal") } }
     @Published var hotkeyCyclesTabs: Bool { didSet { d.set(hotkeyCyclesTabs, forKey: "hotkeyCyclesTabs") } }
@@ -60,7 +62,7 @@ final class Preferences: ObservableObject {
             "linkPreviews": true, "ocr": true, "directPaste": true, "capturePaused": false,
             // Empty: Jira chips appear once you set your site in Settings. UI tests use a placeholder.
             "smartActions": true, "jiraBaseURL": UITest.enabled ? "https://example.atlassian.net" : "",
-            "glideSelection": true, "sweepSelection": true, "parallax": true, "haptics": true,
+            "glideSelection": true, "sweepSelection": true, "parallax": true, "haptics": true, "entranceAnimation": false,
             "doubleCtrlInPanel": true, "doubleCtrlGlobal": true, "hotkeyCyclesTabs": true, "searchEverywhere": true,
             // UI test runs stay silent; everyone else gets sounds at 40%.
             "soundsEnabled": !UITest.enabled, "soundVolume": 0.4, "soundCopy": true, "soundPaste": true, "soundDelete": true,
@@ -80,6 +82,7 @@ final class Preferences: ObservableObject {
         sweepSelection = d.bool(forKey: "sweepSelection")
         parallax = d.bool(forKey: "parallax")
         haptics = d.bool(forKey: "haptics")
+        entranceAnimation = d.bool(forKey: "entranceAnimation")
         doubleCtrlInPanel = d.bool(forKey: "doubleCtrlInPanel")
         doubleCtrlGlobal = d.bool(forKey: "doubleCtrlGlobal")
         hotkeyCyclesTabs = d.bool(forKey: "hotkeyCyclesTabs")

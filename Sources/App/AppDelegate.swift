@@ -107,6 +107,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.panel.toggle()
         }
 
+        if !UITest.enabled || UITest.autoToggles > 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.panel.warmUp() }
+        }
+        if UITest.autoToggles > 0 {
+            for i in 0..<(UITest.autoToggles * 2) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3 + Double(i) * 1.2) { [weak self] in self?.panel.toggle() }
+            }
+        }
+
         if UITest.enabled {
             DistributedNotificationCenter.default().addObserver(forName: .init("local.mypaste.uitest.settings"), object: nil, queue: .main) { [weak self] n in
                 if let raw = n.object as? String, let pane = SettingsView.Pane(rawValue: raw) { SettingsRouter.shared.pane = pane }

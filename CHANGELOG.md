@@ -2,6 +2,12 @@
 
 Versions follow semver. The build number (CFBundleVersion) is the git commit count, stamped by `make app`.
 
+## 1.6.2 (2026-11-06)
+
+- Opening the strip is faster. The staggered card entrance (the first ten cards springing in 35 ms apart, about half a second) is now off by default; turn it back on in Settings → Appearance → Opening the strip. The slide and fade are also shorter (0.13 s and 0.09 s, from 0.2 s and 0.16 s).
+- The first open after launch no longer stalls 110–155 ms: the strip is rendered once, invisibly, a second after launch.
+- `MYPASTE_PERF=1` also logs the open path (`show.*`), and `MYPASTE_UITEST_AUTOTOGGLE=n` opens and closes the strip n times by itself for timing runs.
+
 ## 1.6.1 (2026-11-05)
 
 - One-line install: `scripts/install.sh` downloads the latest release (universal, Apple silicon + Intel), so you don't need developer tools. `--source` builds from a clone or a fresh checkout after checking for the Command Line Tools and Swift 6. `--uninstall [--purge]` removes it.

@@ -8,6 +8,9 @@ enum UITest {
     static var openURL: URL? { url("MYPASTE_UITEST_OPEN") }
     static var maccyStore: URL? { url("MYPASTE_UITEST_MACCY") }
     static var soundFile: URL? { url("MYPASTE_UITEST_SOUNDFILE") }
+    /// Opens and closes the strip this many times on its own (for timing runs; a notification would
+    /// reach every running copy of myPaste, including your real one).
+    static var autoToggles: Int { enabled ? Int(ProcessInfo.processInfo.environment["MYPASTE_UITEST_AUTOTOGGLE"] ?? "") ?? 0 : 0 }
 
     private static func url(_ key: String) -> URL? {
         guard enabled, let path = ProcessInfo.processInfo.environment[key] else { return nil }

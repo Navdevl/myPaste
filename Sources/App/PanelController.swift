@@ -78,20 +78,36 @@ final class PanelController: NSObject, NSWindowDelegate {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
         let target = NSRect(x: screen.frame.minX, y: screen.frame.minY, width: screen.frame.width, height: Self.height)
-        model.prepareForShow()
+        Perf.measure("show.prepareForShow") { model.prepareForShow() }
         // Frame is set once; the slide is a layer transform. Animating the window frame re-ran
         // SwiftUI layout every frame (~130 ms of main-thread time per open with 2,000 items).
         if panel.frame != target { panel.setFrame(target, display: false) }
+        panel.ignoresMouseEvents = false
         panel.alphaValue = 0
-        panel.makeKeyAndOrderFront(nil)
+        Perf.measure("show.orderFront") { panel.makeKeyAndOrderFront(nil) }
         isVisible = true
-        slide(from: -Self.height * 0.35, to: 0, duration: 0.2)
+        slide(from: -Self.height * 0.25, to: 0, duration: 0.13)
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.16
+            ctx.duration = 0.09
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().alphaValue = 1
         }
         installKeyMonitor()
+    }
+
+    /// The first open after launch used to stall 110–155 ms while SwiftUI built and rendered the strip.
+    /// Doing that once at launch, invisibly and without taking focus, makes the first open as fast as the rest.
+    func warmUp() {
+        guard !isVisible, let screen = NSScreen.main else { return }
+        panel.setFrame(NSRect(x: screen.frame.minX, y: screen.frame.minY, width: screen.frame.width, height: Self.height), display: false)
+        panel.alphaValue = 0
+        panel.ignoresMouseEvents = true
+        panel.orderFrontRegardless()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            guard let self, !self.isVisible else { return }
+            self.panel.orderOut(nil)
+            self.panel.ignoresMouseEvents = false
+        }
     }
 
     func hide() {
